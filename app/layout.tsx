@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Poppins } from "next/font/google";
 import "./globals.css";
+import ErrorBoundary from "./component/ErrorBoundary";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -29,7 +30,9 @@ export default function RootLayout({
     <html lang="en">
       {/* Gabungkan variabel font di sini */}
       <body className={`${cormorant.variable} ${poppins.variable} antialiased`}>
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </body>
     </html>
   );
