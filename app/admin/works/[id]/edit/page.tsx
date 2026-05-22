@@ -2,11 +2,11 @@
 
 import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useAuth } from '../../../hooks/useAuth';
-import { isAdmin } from '../../../lib/adminUtils';
-import { supabase } from '../../../lib/supabaseClient';
-import Navbar from '../../../component/Navbar';
-import { ChevronLeft } from 'lucide-react';
+import { useAuth } from '../../../../hooks/useAuth';
+import { isAdmin } from '../../../../lib/adminUtils';
+import { supabase } from '../../../../lib/supabaseClient';
+import Navbar from '../../../../component/Navbar';
+import { ChevronLeft, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Work {
   id: string;
@@ -39,6 +39,9 @@ export default function EditWork() {
   const [isPublished, setIsPublished] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (!loading) {
@@ -108,14 +111,17 @@ export default function EditWork() {
         .eq('id', imageId);
 
       if (error) {
-        alert('Failed to delete image');
+        setErrorMessage('Failed to delete image');
+        setShowErrorModal(true);
         return;
       }
 
       setWorkImages(workImages.filter(img => img.id !== imageId));
-      alert('Image deleted');
+      alert('Image deleted successfully');
     } catch (error) {
       console.error('Error:', error);
+      setErrorMessage('Failed to delete image');
+      setShowErrorModal(true);
     }
   };
 
@@ -146,7 +152,8 @@ export default function EditWork() {
       alert('Featured image updated');
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to update featured image');
+      setErrorMessage('Failed to update featured image');
+      setShowErrorModal(true);
     }
   };
 
@@ -156,7 +163,8 @@ export default function EditWork() {
 
     try {
       if (!title.trim()) {
-        alert('Title is required');
+        setErrorMessage('Title is required');
+        setShowErrorModal(true);
         setIsSubmitting(false);
         return;
       }
@@ -173,16 +181,20 @@ export default function EditWork() {
 
       if (error) {
         console.error('Update error:', error);
-        alert('Failed to update work');
+        setErrorMessage('Failed to update work');
+        setShowErrorModal(true);
         setIsSubmitting(false);
         return;
       }
 
-      alert('Work updated successfully!');
-      router.push('/admin/works');
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        router.push('/admin/works');
+      }, 2000);
     } catch (error) {
       console.error('Error:', error);
-      alert('An error occurred');
+      setErrorMessage('An error occurred');
+      setShowErrorModal(true);
       setIsSubmitting(false);
     }
   };
@@ -337,6 +349,57 @@ export default function EditWork() {
           </form>
         </div>
       </main>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300">
+            <div className="flex justify-center mb-4">
+              <CheckCircle size={64} className="text-green-500" />
+            </div>
+            <h2 className="text-2xl font-cormorant font-medium text-black mb-2">
+              Work Updated Successfully!
+            </h2>
+            <p className="text-black/60 mb-6">
+              Your work has been updated and saved.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  router.push('/admin/works');
+                }}
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+              >
+                View Works
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300">
+            <div className="flex justify-center mb-4">
+              <AlertCircle size={64} className="text-red-500" />
+            </div>
+            <h2 className="text-2xl font-cormorant font-medium text-black mb-2">
+              Update Failed
+            </h2>
+            <p className="text-black/60 mb-6">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => setShowErrorModal(false)}
+              className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

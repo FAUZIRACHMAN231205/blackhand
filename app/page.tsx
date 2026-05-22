@@ -23,7 +23,7 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
+      <div className="min-h-screen flex items-center justify-center bg-black dark:bg-slate-950">
         <div className="text-white text-xl">Loading...</div>
       </div>
     );
@@ -33,15 +33,16 @@ export default function Home() {
     <>
       <Navbar onOpenModal={() => setIsModalOpen(true)} />
       
-      <main className="relative w-full h-screen overflow-hidden">
+      <main className="relative w-full h-screen overflow-hidden bg-white dark:bg-slate-950">
         <Image 
           src="/arte.jpeg" 
           alt="Blackhand Background"
           fill
-          className="object-cover"
+          className="object-cover dark:opacity-60"
           priority
           draggable={false}
         />
+        <div className="absolute inset-0 bg-black/0 dark:bg-black/40 pointer-events-none" />
       </main>
 
       {/* Tampilkan Modal di sini */}

@@ -1,18 +1,25 @@
 @import "tailwindcss";
 
+:root {
+  /* 1. Properti standar CSS dipindahkan ke sini */
+  color-scheme: light dark;
+  background: white;
+  color: black;
+}
+
+:root.dark {
+  background: #030712;
+  color: white;
+}
+
 @theme {
-  /* Daftarkan variabel font dari layout.tsx */
+  /* 2. Blok @theme sekarang BERSIH, hanya berisi custom properties (variabel --*) */
   --font-serif: var(--font-cormorant);
   --font-sans: var(--font-poppins);
 }
 
-:root {
-  background: black;
-  color: white;
-}
-
 body {
   font-family: var(--font-serif);
-  /* Mencegah scroll saat modal terbuka (opsional) */
+  /* Mencegah scroll horizontal */
   overflow-x: hidden;
 }

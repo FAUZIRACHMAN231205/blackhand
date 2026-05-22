@@ -6,7 +6,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isAdmin } from '../../../lib/adminUtils';
 import { supabase } from '../../../lib/supabaseClient';
 import Navbar from '../../../component/Navbar';
-import { ChevronLeft, Upload, X } from 'lucide-react';
+import { ChevronLeft, Upload, X, CheckCircle, AlertCircle } from 'lucide-react';
 
 const CATEGORIES = ['Paintings', 'Digital Art', 'Sculptures'];
 const MAX_IMAGES = 6;
@@ -34,6 +34,9 @@ export default function CreateWork() {
   );
   const [isPublished, setIsPublished] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     // Redirect jika belum login atau bukan admin
@@ -118,7 +121,8 @@ export default function CreateWork() {
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
-          alert(`Failed to upload image ${index + 1}`);
+          setErrorMessage(`Failed to upload image ${index + 1}`);
+          setShowErrorModal(true);
           setIsSubmitting(false);
           return;
         }
@@ -151,7 +155,8 @@ export default function CreateWork() {
 
       if (workError) {
         console.error('Work creation error:', workError);
-        alert('Failed to create work');
+        setErrorMessage('Failed to create work');
+        setShowErrorModal(true);
         setIsSubmitting(false);
         return;
       }
@@ -170,16 +175,20 @@ export default function CreateWork() {
 
       if (imagesError) {
         console.error('Images insertion error:', imagesError);
-        alert('Failed to save images');
+        setErrorMessage('Failed to save images');
+        setShowErrorModal(true);
         setIsSubmitting(false);
         return;
       }
 
-      alert('Work created successfully!');
-      router.push('/admin/works');
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        router.push('/admin/works');
+      }, 2000);
     } catch (error) {
       console.error('Error:', error);
-      alert('An error occurred');
+      setErrorMessage('An error occurred');
+      setShowErrorModal(true);
       setIsSubmitting(false);
     }
   };
@@ -350,6 +359,57 @@ export default function CreateWork() {
           </form>
         </div>
       </main>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300">
+            <div className="flex justify-center mb-4">
+              <CheckCircle size={64} className="text-green-500" />
+            </div>
+            <h2 className="text-2xl font-cormorant font-medium text-black mb-2">
+              Work Created Successfully!
+            </h2>
+            <p className="text-black/60 mb-6">
+              Your work has been uploaded and saved to the gallery.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  router.push('/admin/works');
+                }}
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
+              >
+                View Works
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300">
+            <div className="flex justify-center mb-4">
+              <AlertCircle size={64} className="text-red-500" />
+            </div>
+            <h2 className="text-2xl font-cormorant font-medium text-black mb-2">
+              Upload Failed
+            </h2>
+            <p className="text-black/60 mb-6">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => setShowErrorModal(false)}
+              className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

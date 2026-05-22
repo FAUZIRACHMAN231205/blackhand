@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Poppins } from "next/font/google";
 import "./globals.css";
 import ErrorBoundary from "./component/ErrorBoundary";
+import { ThemeProvider } from "./context/ThemeContext";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -29,9 +30,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       {/* Gabungkan variabel font di sini */}
-      <body className={`${cormorant.variable} ${poppins.variable} antialiased`}>
+      <body className={`${cormorant.variable} ${poppins.variable} antialiased bg-white dark:bg-slate-950 text-black dark:text-white transition-colors duration-300`}>
         <ErrorBoundary>
-          {children}
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
         </ErrorBoundary>
       </body>
     </html>
