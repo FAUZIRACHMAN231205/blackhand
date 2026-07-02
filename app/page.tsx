@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from './component/Navbar';
 import AuthModal from './component/AuthModal';
 import { useAuth } from './hooks/useAuth';
 import Image from 'next/image';
 
-export default function Home() {
+function HomeContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -51,5 +51,13 @@ export default function Home() {
         onClose={() => setIsModalOpen(false)} 
       />
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-black dark:bg-slate-950"><div className="text-white text-xl">Loading...</div></div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

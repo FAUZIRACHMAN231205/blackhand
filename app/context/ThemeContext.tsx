@@ -19,6 +19,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
     const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsDark(shouldBeDark);
     
     // Apply theme to document
@@ -45,11 +46,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       return newTheme;
     });
   };
-
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return <>{children}</>;
-  }
 
   return (
     <ThemeContext.Provider value={{ isDark, toggleTheme }}>

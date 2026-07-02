@@ -1,16 +1,19 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { isAdmin } from '../lib/adminUtils';
+import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
-import { Plus, Edit2, Trash2, BarChart3 } from 'lucide-react';
+import { Plus, Edit2, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [stats, setStats] = useState({ totalWorks: 0, totalImages: 0, featuredWorks: 0 });
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     // Redirect jika belum login atau bukan admin
@@ -23,10 +26,37 @@ export default function AdminDashboard() {
     }
   }, [user, loading, router]);
 
+  const fetchStats = async () => {
+    try {
+      const [worksResult, imagesResult, featuredResult] = await Promise.all([
+        supabase.from('works').select('id', { count: 'exact', head: true }),
+        supabase.from('work_images').select('id', { count: 'exact', head: true }),
+        supabase.from('works').select('id', { count: 'exact', head: true }).eq('is_featured', true),
+      ]);
+
+      setStats({
+        totalWorks: worksResult.count ?? 0,
+        totalImages: imagesResult.count ?? 0,
+        featuredWorks: featuredResult.count ?? 0,
+      });
+    } catch (error) {
+      console.error('Error fetching admin stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && isAdmin(user.email)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchStats();
+    }
+  }, [user]);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-black text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950 transition-colors">
+        <div className="text-black dark:text-white text-xl">Loading...</div>
       </div>
     );
   }
@@ -39,84 +69,90 @@ export default function AdminDashboard() {
     <>
       <Navbar onOpenModal={() => {}} />
       
-      <main className="min-h-[100dvh] bg-white text-black pt-24 p-6 md:p-20">
+      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors">
         <div className="max-w-6xl mx-auto">
           {/* Header Section */}
           <div className="mb-12">
             <h1 className="text-5xl md:text-6xl font-cormorant font-medium mb-2">
               Admin Panel
             </h1>
-            <p className="text-black/60 text-lg">
-              Welcome, <span className="text-black/80">{user.email}</span>
+            <p className="text-black/60 dark:text-white/60 text-lg">
+              Welcome, <span className="text-black/80 dark:text-white/80">{user.email}</span>
             </p>
           </div>
 
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <div className="bg-white border border-black/10 rounded-lg p-6">
+            <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-6 shadow-sm transition-colors">
               <div className="flex items-center gap-3 mb-4">
-                <BarChart3 size={24} className="text-black/60" />
+                <BarChart3 size={24} className="text-black/60 dark:text-white/60" />
                 <h3 className="font-cormorant font-medium text-lg">Total Works</h3>
               </div>
-              <p className="text-3xl font-bold text-black">0</p>
-              <p className="text-black/60 text-sm mt-2">Artworks published</p>
+              <p className="text-3xl font-bold text-black dark:text-white">
+                {loadingStats ? '...' : stats.totalWorks}
+              </p>
+              <p className="text-black/60 dark:text-white/60 text-sm mt-2">Artworks published</p>
             </div>
 
-            <div className="bg-white border border-black/10 rounded-lg p-6">
+            <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-6 shadow-sm transition-colors">
               <div className="flex items-center gap-3 mb-4">
-                <BarChart3 size={24} className="text-black/60" />
+                <BarChart3 size={24} className="text-black/60 dark:text-white/60" />
                 <h3 className="font-cormorant font-medium text-lg">Total Images</h3>
               </div>
-              <p className="text-3xl font-bold text-black">0</p>
-              <p className="text-black/60 text-sm mt-2">Across all works</p>
+              <p className="text-3xl font-bold text-black dark:text-white">
+                {loadingStats ? '...' : stats.totalImages}
+              </p>
+              <p className="text-black/60 dark:text-white/60 text-sm mt-2">Across all works</p>
             </div>
 
-            <div className="bg-white border border-black/10 rounded-lg p-6">
+            <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-6 shadow-sm transition-colors">
               <div className="flex items-center gap-3 mb-4">
-                <BarChart3 size={24} className="text-black/60" />
+                <BarChart3 size={24} className="text-black/60 dark:text-white/60" />
                 <h3 className="font-cormorant font-medium text-lg">Featured Works</h3>
               </div>
-              <p className="text-3xl font-bold text-black">0</p>
-              <p className="text-black/60 text-sm mt-2">Showcased artworks</p>
+              <p className="text-3xl font-bold text-black dark:text-white">
+                {loadingStats ? '...' : stats.featuredWorks}
+              </p>
+              <p className="text-black/60 dark:text-white/60 text-sm mt-2">Showcased artworks</p>
             </div>
           </div>
 
           {/* Main Actions */}
           <div className="mb-12">
-            <h2 className="text-2xl font-cormorant font-medium mb-6 text-black/80">Management</h2>
+            <h2 className="text-2xl font-cormorant font-medium mb-6 text-black/80 dark:text-white/80">Management</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Create Work */}
               <Link href="/admin/works/create" className="group">
-                <div className="bg-white border border-black/10 rounded-lg p-8 hover:border-black/30 transition-all hover:shadow-lg cursor-pointer">
+                <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-8 hover:border-black/30 dark:hover:border-white/30 transition-all hover:shadow-lg cursor-pointer">
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-black/10 rounded-lg flex items-center justify-center">
-                      <Plus size={24} className="text-black" />
+                    <div className="w-12 h-12 bg-black/10 dark:bg-white/10 rounded-lg flex items-center justify-center">
+                      <Plus size={24} className="text-black dark:text-white" />
                     </div>
                     <h3 className="text-xl font-cormorant font-medium">Upload New Work</h3>
                   </div>
-                  <p className="text-black/60">Create a new album with up to 6 images</p>
+                  <p className="text-black/60 dark:text-white/60">Create a new album with up to 6 images</p>
                 </div>
               </Link>
 
               {/* Manage Works */}
               <Link href="/admin/works" className="group">
-                <div className="bg-white border border-black/10 rounded-lg p-8 hover:border-black/30 transition-all hover:shadow-lg cursor-pointer">
+                <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-8 hover:border-black/30 dark:hover:border-white/30 transition-all hover:shadow-lg cursor-pointer">
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-black/10 rounded-lg flex items-center justify-center">
-                      <Edit2 size={24} className="text-black" />
+                    <div className="w-12 h-12 bg-black/10 dark:bg-white/10 rounded-lg flex items-center justify-center">
+                      <Edit2 size={24} className="text-black dark:text-white" />
                     </div>
                     <h3 className="text-xl font-cormorant font-medium">Manage Works</h3>
                   </div>
-                  <p className="text-black/60">View, edit, or delete existing artworks</p>
+                  <p className="text-black/60 dark:text-white/60">View, edit, or delete existing artworks</p>
                 </div>
               </Link>
             </div>
           </div>
 
           {/* Information Section */}
-          <div className="bg-black/5 border border-black/10 rounded-lg p-8">
+          <div className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg p-8">
             <h3 className="text-lg font-cormorant font-medium mb-4">📋 Admin Information</h3>
-            <ul className="space-y-3 text-black/70">
+            <ul className="space-y-3 text-black/70 dark:text-white/70">
               <li>• Each work is an album containing up to 6 images</li>
               <li>• You can set one image as featured/showcase</li>
               <li>• Works are published by default but can be unpublished</li>

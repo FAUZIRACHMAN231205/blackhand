@@ -66,10 +66,11 @@ export async function POST(request: NextRequest) {
       message: 'OTP sent successfully',
       id: response.data?.id,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API error:', error);
+    const errMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { error: errMsg || 'Internal server error' },
       { status: 500 }
     );
   }

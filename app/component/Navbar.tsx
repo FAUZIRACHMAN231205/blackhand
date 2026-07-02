@@ -30,9 +30,8 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
 
       {/* Menu Navigasi dengan Poppins */}
       <div className="hidden md:flex items-center space-x-10 font-sans text-xs font-bold tracking-[0.15em] uppercase text-black dark:text-white">
-        <Link href="/shop" className="hover:text-black/60 dark:hover:text-white/60 transition-colors">New</Link>
-        <Link href="/archive" className="hover:text-black/60 dark:hover:text-white/60 transition-colors">Collection</Link>
-        <Link href="/about" className="hover:text-black/60 dark:hover:text-white/60 transition-colors">Access</Link>
+        <Link href="/works" className="hover:text-black/60 dark:hover:text-white/60 transition-colors">Feed</Link>
+        <Link href="/gallery" className="hover:text-black/60 dark:hover:text-white/60 transition-colors">Collection</Link>
       </div>
 
       {/* Ikon Pengguna & Tools */}

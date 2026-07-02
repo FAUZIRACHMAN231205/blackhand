@@ -35,13 +35,6 @@ export default function AdminWorks() {
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    // Fetch works dari database
-    if (user && isAdmin(user.email)) {
-      fetchWorks();
-    }
-  }, [user]);
-
   const fetchWorks = async () => {
     try {
       const { data, error } = await supabase
@@ -62,6 +55,14 @@ export default function AdminWorks() {
       setLoadingWorks(false);
     }
   };
+
+  useEffect(() => {
+    // Fetch works dari database
+    if (user && isAdmin(user.email)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchWorks();
+    }
+  }, [user]);
 
   const deleteWork = async (workId: string) => {
     if (!confirm('Are you sure you want to delete this work?')) return;
@@ -88,8 +89,8 @@ export default function AdminWorks() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-black text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950 transition-colors">
+        <div className="text-black dark:text-white text-xl">Loading...</div>
       </div>
     );
   }
@@ -102,12 +103,12 @@ export default function AdminWorks() {
     <>
       <Navbar onOpenModal={() => {}} />
       
-      <main className="min-h-[100dvh] bg-white text-black pt-24 p-6 md:p-20">
+      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <button
             onClick={() => router.push('/admin')}
-            className="flex items-center gap-2 mb-8 text-black/60 hover:text-black transition-colors group"
+            className="flex items-center gap-2 mb-8 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
           >
             <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="font-sans text-sm font-medium">Back to Admin</span>
@@ -118,13 +119,13 @@ export default function AdminWorks() {
               <h1 className="text-5xl md:text-6xl font-cormorant font-medium mb-2">
                 Manage Works
               </h1>
-              <p className="text-black/60">
-                Total: <span className="text-black font-medium">{works.length}</span> artworks
+              <p className="text-black/60 dark:text-white/60">
+                Total: <span className="text-black dark:text-white font-medium">{works.length}</span> artworks
               </p>
             </div>
             <Link 
               href="/admin/works/create"
-              className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-lg hover:bg-black/90 transition-colors"
+              className="flex items-center gap-2 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-black/90 dark:hover:bg-white/90 transition-colors font-medium text-sm"
             >
               <Plus size={20} />
               <span>New Work</span>
@@ -134,20 +135,20 @@ export default function AdminWorks() {
           {/* Works List */}
           {loadingWorks ? (
             <div className="text-center py-12">
-              <p className="text-black/60">Loading works...</p>
+              <p className="text-black/60 dark:text-white/60">Loading works...</p>
             </div>
           ) : works.length === 0 ? (
-            <div className="bg-white border border-black/10 rounded-lg p-12 text-center">
+            <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-12 text-center transition-colors">
               <div className="mb-4">
-                <div className="w-16 h-16 bg-black/5 rounded-full mx-auto flex items-center justify-center">
+                <div className="w-16 h-16 bg-black/5 dark:bg-white/5 rounded-full mx-auto flex items-center justify-center">
                   <span className="text-2xl">🎨</span>
                 </div>
               </div>
               <h2 className="text-2xl font-cormorant font-medium mb-2">No Works Yet</h2>
-              <p className="text-black/60 mb-6">Create your first work to showcase your art</p>
+              <p className="text-black/60 dark:text-white/60 mb-6">Create your first work to showcase your art</p>
               <Link 
                 href="/admin/works/create"
-                className="inline-flex items-center gap-2 px-6 py-2 bg-black text-white rounded-lg hover:bg-black/90 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-black/90 dark:hover:bg-white/90 transition-colors"
               >
                 <Plus size={16} />
                 <span>Create First Work</span>
@@ -158,24 +159,24 @@ export default function AdminWorks() {
               {works.map((work) => (
                 <div 
                   key={work.id}
-                  className="bg-white border border-black/10 rounded-lg p-6 hover:border-black/20 transition-colors"
+                  className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-6 hover:border-black/20 dark:hover:border-white/20 transition-all shadow-sm"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex flex-wrap items-center gap-3 mb-2">
                         <h3 className="text-lg font-cormorant font-medium">{work.title}</h3>
                         {work.is_featured && (
-                          <span className="px-2 py-1 bg-yellow-100 border border-yellow-300 rounded-full text-xs font-bold text-yellow-800">
+                          <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-950/40 border border-yellow-300 dark:border-yellow-800/50 rounded-full text-xs font-bold text-yellow-800 dark:text-yellow-400">
                             FEATURED
                           </span>
                         )}
                         {!work.is_published && (
-                          <span className="px-2 py-1 bg-gray-100 border border-gray-300 rounded-full text-xs font-bold text-gray-800">
+                          <span className="px-2 py-0.5 bg-gray-100 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-full text-xs font-bold text-gray-800 dark:text-white/70">
                             UNPUBLISHED
                           </span>
                         )}
                       </div>
-                      <div className="flex gap-4 text-sm text-black/60">
+                      <div className="flex gap-4 text-sm text-black/60 dark:text-white/60">
                         <span>{work.category}</span>
                         <span>{new Date(work.created_at).toLocaleDateString('id-ID')}</span>
                       </div>
@@ -183,17 +184,17 @@ export default function AdminWorks() {
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/admin/works/${work.id}/edit`}
-                        className="p-2 hover:bg-black/5 rounded-lg transition-colors"
+                        className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition-colors"
                         title="Edit"
                       >
-                        <Edit2 size={18} className="text-black/60 hover:text-black" />
+                        <Edit2 size={18} className="text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white" />
                       </Link>
                       <button
                         onClick={() => deleteWork(work.id)}
-                        className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors"
                         title="Delete"
                       >
-                        <Trash2 size={18} className="text-red-600 hover:text-red-700" />
+                        <Trash2 size={18} className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300" />
                       </button>
                     </div>
                   </div>

@@ -2,8 +2,8 @@
 
 import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useAuth } from '../../../hooks/useAuth';
-import { supabase } from '../../../lib/supabaseClient';
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabaseClient';
 import Navbar from '../../component/Navbar';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -39,12 +39,6 @@ export default function WorkDetail() {
       router.push('/');
     }
   }, [user, loading, router]);
-
-  useEffect(() => {
-    if (user) {
-      fetchWorkDetail();
-    }
-  }, [user, workId]);
 
   const fetchWorkDetail = async () => {
     try {
@@ -84,6 +78,13 @@ export default function WorkDetail() {
     }
   };
 
+  useEffect(() => {
+    if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchWorkDetail();
+    }
+  }, [user, workId]);
+
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
   };
@@ -94,8 +95,8 @@ export default function WorkDetail() {
 
   if (loading || loadingWork) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-black text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950 text-black dark:text-white">
+        <div className="text-black dark:text-white text-xl">Loading...</div>
       </div>
     );
   }

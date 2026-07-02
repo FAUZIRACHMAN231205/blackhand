@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
@@ -18,14 +18,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
 
   // Reset state ketika modal dibuka
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setStep('email');
       setEmail('');
       setOtp('');
       setLoading(false);
     }
-  }, [isOpen]);
+  }
 
   if (!isOpen) return null;
 
@@ -45,9 +47,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         },
       });
       if (error) throw error;
-    } catch (error: any) {
-      console.error('Error Google Auth:', error.message);
-      alert('Gagal menghubungkan ke Google Auth: ' + error.message);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error('Error Google Auth:', errMsg);
+      alert('Gagal menghubungkan ke Google Auth: ' + errMsg);
     } finally {
       setLoading(false);
     }
@@ -76,9 +79,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       
       // Jika sukses mengirim kode, pindah ke langkah input OTP
       setStep('otp');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error('Error mengirim OTP:', error);
-      alert('Gagal mengirim kode OTP: ' + (error.message || 'Silakan cek koneksi internet dan coba lagi'));
+      alert('Gagal mengirim kode OTP: ' + (errMsg || 'Silakan cek koneksi internet dan coba lagi'));
     } finally {
       setLoading(false);
     }
@@ -102,9 +106,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       // Jika berhasil login, tutup modal dan redirect ke dashboard
       onClose();
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error('Error verifikasi OTP:', error);
-      alert('Kode OTP salah atau kedaluwarsa: ' + (error.message || 'Silakan coba lagi'));
+      alert('Kode OTP salah atau kedaluwarsa: ' + (errMsg || 'Silakan coba lagi'));
     } finally {
       setLoading(false);
     }

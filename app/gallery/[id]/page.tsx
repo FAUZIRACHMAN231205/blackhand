@@ -6,21 +6,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
 import Navbar from '../../component/Navbar';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-
-interface Work {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  created_at: string;
-}
-
-interface WorkImage {
-  id: string;
-  image_url: string;
-  display_order: number;
-  is_featured: boolean;
-}
+import RatingStars from '../../component/RatingStars';
+import CommentSection from '../../component/CommentSection';
+import { isAdmin as checkAdmin } from '../../lib/adminUtils';
+import type { Work, WorkImage } from '../../types';
 
 export default function GalleryDetail() {
   const { user, loading } = useAuth();
@@ -32,6 +21,7 @@ export default function GalleryDetail() {
   const [images, setImages] = useState<WorkImage[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loadingWork, setLoadingWork] = useState(true);
+  const [ratingsVersion, setRatingsVersion] = useState(0);
 
   useEffect(() => {
     // Redirect ke home jika belum login
@@ -39,12 +29,6 @@ export default function GalleryDetail() {
       router.push('/');
     }
   }, [user, loading, router]);
-
-  useEffect(() => {
-    if (user) {
-      fetchWorkDetail();
-    }
-  }, [user, workId]);
 
   const fetchWorkDetail = async () => {
     try {
@@ -84,6 +68,13 @@ export default function GalleryDetail() {
     }
   };
 
+  useEffect(() => {
+    if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchWorkDetail();
+    }
+  }, [user, workId]);
+
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
   };
@@ -94,8 +85,8 @@ export default function GalleryDetail() {
 
   if (loading || loadingWork) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-black text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950 text-black dark:text-white">
+        <div className="text-black dark:text-white text-xl">Loading...</div>
       </div>
     );
   }
@@ -192,16 +183,39 @@ export default function GalleryDetail() {
                   ))}
                 </div>
               )}
+
+              {/* Description Section */}
+              {work.description && (
+                <div className="mt-8 border-t border-black/10 dark:border-white/10 pt-6">
+                  <h3 className="text-sm font-bold text-black/70 dark:text-white/70 mb-4 uppercase tracking-wider">
+                    About the Artwork
+                  </h3>
+                  <p className="text-base text-slate-700 dark:text-slate-300 leading-relaxed font-normal whitespace-pre-wrap">
+                    {work.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Comments Section */}
+              <div className="mt-12 pt-8 border-t border-black/10 dark:border-white/10">
+                <CommentSection
+                  workId={workId}
+                  userId={user.id}
+                  userEmail={user.email || ''}
+                  isAdmin={user.email ? checkAdmin(user.email) : false}
+                  ratingsVersion={ratingsVersion}
+                />
+              </div>
             </div>
 
             {/* Info Panel */}
             <div className="lg:col-span-1">
-              <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-5 space-y-3 sticky top-20">
+              <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-5 space-y-4 sticky top-20">
                 <div>
                   <h1 className="text-2xl font-cormorant font-medium mb-2 text-black dark:text-white">
                     {work.title}
                   </h1>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 mb-3">
                     <span className="px-3 py-1 bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 rounded-full text-xs font-bold text-black/70 dark:text-white/70">
                       {work.category}
                     </span>
@@ -211,20 +225,20 @@ export default function GalleryDetail() {
                       </span>
                     )}
                   </div>
+
+                  {/* Rating Stars Section */}
+                  <div className="pt-2 border-t border-black/5 dark:border-white/5">
+                    <RatingStars
+                      workId={workId}
+                      userId={user.id}
+                      onRate={() => setRatingsVersion((prev) => prev + 1)}
+                    />
+                  </div>
                 </div>
 
-                {work.description && (
-                  <div className="border-t border-black/10 dark:border-white/10 pt-4">
-                    <h3 className="text-sm font-bold text-black/70 dark:text-white/70 mb-3 uppercase tracking-wide">DESCRIPTION</h3>
-                    <p className="text-black/70 dark:text-white/70 leading-relaxed text-sm font-light">
-                      {work.description}
-                    </p>
-                  </div>
-                )}
-
                 <div>
-                  <h3 className="text-xs font-bold text-black/60 dark:text-white/60 mb-1">DETAILS</h3>
-                  <div className="space-y-1 text-xs">
+                  <h3 className="text-xs font-bold text-black/60 dark:text-white/60 mb-2 uppercase tracking-wider">DETAILS</h3>
+                  <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-black/60 dark:text-white/60">Images</span>
                       <span className="font-medium text-black dark:text-white">{images.length}</span>
@@ -244,7 +258,7 @@ export default function GalleryDetail() {
 
                 <button
                   onClick={() => router.push('/gallery')}
-                  className="w-full px-3 py-1 border border-black/20 dark:border-white/20 text-black dark:text-white rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors font-medium text-xs"
+                  className="w-full px-3 py-2 border border-black/20 dark:border-white/20 text-black dark:text-white rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors font-semibold text-xs uppercase tracking-wider"
                 >
                   View All Works
                 </button>

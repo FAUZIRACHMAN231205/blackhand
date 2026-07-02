@@ -53,12 +53,6 @@ export default function EditWork() {
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    if (user && isAdmin(user.email)) {
-      fetchWork();
-    }
-  }, [user, workId]);
-
   const fetchWork = async () => {
     try {
       // Fetch work
@@ -100,6 +94,13 @@ export default function EditWork() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user && isAdmin(user.email)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchWork();
+    }
+  }, [user, workId]);
 
   const handleDeleteImage = async (imageId: string) => {
     if (!confirm('Delete this image?')) return;
@@ -201,8 +202,8 @@ export default function EditWork() {
 
   if (loading || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-black text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950 transition-colors">
+        <div className="text-black dark:text-white text-xl">Loading...</div>
       </div>
     );
   }
@@ -215,12 +216,12 @@ export default function EditWork() {
     <>
       <Navbar onOpenModal={() => {}} />
       
-      <main className="min-h-[100dvh] bg-white text-black pt-24 p-6 md:p-20">
+      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors">
         <div className="max-w-4xl mx-auto">
           {/* Back Button */}
           <button
             onClick={() => router.push('/admin/works')}
-            className="flex items-center gap-2 mb-8 text-black/60 hover:text-black transition-colors group"
+            className="flex items-center gap-2 mb-8 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
           >
             <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="font-sans text-sm font-medium">Back to Works</span>
@@ -236,36 +237,36 @@ export default function EditWork() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Basic Info */}
-            <div className="bg-white border border-black/10 rounded-lg p-8 space-y-6">
+            <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-8 space-y-6 transition-colors shadow-sm">
               <h2 className="text-lg font-cormorant font-medium">Work Information</h2>
 
               <div>
-                <label className="block text-sm font-bold text-black/80 mb-3">Title *</label>
+                <label className="block text-sm font-bold text-black/80 dark:text-white/80 mb-3">Title *</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-4 py-3 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                  className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-black/10 dark:border-white/10 rounded-lg text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-black/80 mb-3">Description</label>
+                <label className="block text-sm font-bold text-black/80 dark:text-white/80 mb-3">Description</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
-                  className="w-full px-4 py-3 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                  className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-black/10 dark:border-white/10 rounded-lg text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 transition-colors"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-black/80 mb-3">Category</label>
+                  <label className="block text-sm font-bold text-black/80 dark:text-white/80 mb-3">Category</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-3 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-black/10 dark:border-white/10 rounded-lg text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 transition-colors"
                   >
                     {CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>
@@ -276,11 +277,11 @@ export default function EditWork() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-black/80 mb-3">Status</label>
+                  <label className="block text-sm font-bold text-black/80 dark:text-white/80 mb-3">Status</label>
                   <select
                     value={isPublished ? 'published' : 'unpublished'}
                     onChange={(e) => setIsPublished(e.target.value === 'published')}
-                    className="w-full px-4 py-3 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-black/10 dark:border-white/10 rounded-lg text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 transition-colors"
                   >
                     <option value="published">Published</option>
                     <option value="unpublished">Unpublished</option>
@@ -290,27 +291,27 @@ export default function EditWork() {
             </div>
 
             {/* Images */}
-            <div className="bg-white border border-black/10 rounded-lg p-8 space-y-6">
+            <div className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-lg p-8 space-y-6 transition-colors shadow-sm">
               <h2 className="text-lg font-cormorant font-medium">Images ({workImages.length})</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {workImages.map((image) => (
-                  <div key={image.id} className="border border-black/10 rounded-lg overflow-hidden">
+                  <div key={image.id} className="border border-black/10 dark:border-white/10 rounded-lg overflow-hidden transition-colors shadow-sm">
                     <img
                       src={image.image_url}
                       alt={`Work image ${image.display_order}`}
                       className="w-full h-48 object-cover"
                     />
                     <div className="p-4 space-y-2">
-                      <p className="text-sm text-black/60">Image {image.display_order}</p>
+                      <p className="text-sm text-black/60 dark:text-white/60">Image {image.display_order}</p>
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => handleSetFeatured(image.id)}
-                          className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
+                          className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                             image.is_featured
-                              ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
-                              : 'bg-black/5 text-black/60 hover:bg-black/10'
+                              ? 'bg-yellow-100 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800/50'
+                              : 'bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10'
                           }`}
                         >
                           {image.is_featured ? '⭐ Featured' : 'Set Featured'}
@@ -318,7 +319,7 @@ export default function EditWork() {
                         <button
                           type="button"
                           onClick={() => handleDeleteImage(image.id)}
-                          className="flex-1 px-3 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                          className="flex-1 px-3 py-2 text-sm bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors font-medium"
                         >
                           Delete
                         </button>
@@ -334,14 +335,14 @@ export default function EditWork() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 px-6 py-3 bg-black text-white rounded-lg hover:bg-black/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                className="flex-1 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-black/90 dark:hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
               >
                 {isSubmitting ? 'Updating...' : 'Update Work'}
               </button>
               <button
                 type="button"
                 onClick={() => router.push('/admin/works')}
-                className="flex-1 px-6 py-3 border border-black/20 text-black rounded-lg hover:bg-black/5 transition-colors font-medium"
+                className="flex-1 px-6 py-3 border border-black/20 dark:border-white/20 text-black dark:text-white rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors font-medium"
               >
                 Cancel
               </button>
@@ -353,14 +354,14 @@ export default function EditWork() {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300">
+          <div className="bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300 transition-colors">
             <div className="flex justify-center mb-4">
               <CheckCircle size={64} className="text-green-500" />
             </div>
-            <h2 className="text-2xl font-cormorant font-medium text-black mb-2">
+            <h2 className="text-2xl font-cormorant font-medium text-black dark:text-white mb-2">
               Work Updated Successfully!
             </h2>
-            <p className="text-black/60 mb-6">
+            <p className="text-black/60 dark:text-white/60 mb-6">
               Your work has been updated and saved.
             </p>
             <div className="flex gap-3">
@@ -381,14 +382,14 @@ export default function EditWork() {
       {/* Error Modal */}
       {showErrorModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300">
+          <div className="bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300 transition-colors">
             <div className="flex justify-center mb-4">
               <AlertCircle size={64} className="text-red-500" />
             </div>
-            <h2 className="text-2xl font-cormorant font-medium text-black mb-2">
+            <h2 className="text-2xl font-cormorant font-medium text-black dark:text-white mb-2">
               Update Failed
             </h2>
-            <p className="text-black/60 mb-6">
+            <p className="text-black/60 dark:text-white/60 mb-6">
               {errorMessage}
             </p>
             <button
