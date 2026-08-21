@@ -1,5 +1,15 @@
 // Shared types for BLACKHAND Art
 
+export interface User {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  provider: string;
+  created_at?: string;
+  last_sign_in_at?: string;
+}
+
 export interface Work {
   id: string;
   title: string;

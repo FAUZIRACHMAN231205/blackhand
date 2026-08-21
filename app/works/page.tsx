@@ -179,7 +179,7 @@ function FeedPost({
       <div className="px-6 pt-4 pb-2 space-y-3">
         {/* Title + Category */}
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-xl font-cormorant font-semibold text-slate-900 dark:text-white leading-tight">
+          <h3 className="text-xl font-serif italic font-semibold text-slate-900 dark:text-white leading-tight">
             {work.title}
           </h3>
           <div className="flex items-center gap-2 shrink-0">
@@ -239,10 +239,10 @@ function FeedPost({
 
           <Link
             href={`/gallery/${work.id}`}
-            className="text-xs font-sans font-bold text-slate-500 hover:text-violet-600 dark:text-slate-400 dark:hover:text-violet-400 transition-colors flex items-center gap-1"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/15 text-violet-600 dark:text-violet-400 rounded-full transition-colors font-sans text-[11px] font-bold"
           >
-            <MessageSquare size={13} />
-            Diskusi & Rating &rarr;
+            <MessageSquare size={12} strokeWidth={1.5} />
+            Diskusi &amp; Rating
           </Link>
         </div>
 
@@ -416,7 +416,7 @@ export default function ActivityFeed() {
                 Activity Feed
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-cormorant font-medium tracking-tight mb-2">
+            <h1 className="text-4xl md:text-5xl font-serif italic font-medium tracking-tight mb-2">
               What&apos;s New
             </h1>
             <p className="text-black/60 dark:text-white/60 text-base font-sans">
@@ -440,7 +440,7 @@ export default function ActivityFeed() {
                   size={28}
                 />
               </div>
-              <h2 className="text-2xl font-cormorant font-medium">
+              <h2 className="text-2xl font-serif italic font-medium">
                 Belum Ada Update
               </h2>
               <p className="text-slate-500 dark:text-slate-400 text-sm font-sans">

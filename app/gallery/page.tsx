@@ -72,8 +72,8 @@ export default function Gallery() {
   return (
     <>
       <Navbar onOpenModal={() => {}} />
-      
-      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors">
+
+      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors duration-300">
         <div className="max-w-7xl mx-auto">
           {/* Back to Dashboard Button */}
           <button
@@ -86,10 +86,10 @@ export default function Gallery() {
 
           {/* Header Section */}
           <div className="mb-12">
-            <h1 className="text-5xl md:text-6xl font-cormorant font-medium mb-2">
+            <h1 className="font-serif text-5xl md:text-6xl italic font-medium mb-2">
               Gallery
             </h1>
-            <p className="text-black/60 dark:text-white/60 text-lg">
+            <p className="font-sans text-black/60 dark:text-white/60 text-lg">
               Explore my artistic portfolio and creative projects
             </p>
           </div>
@@ -97,25 +97,25 @@ export default function Gallery() {
           {/* Featured Showcase */}
           {featuredWorks.length > 0 && (
             <div className="mb-16">
-              <h2 className="text-2xl font-cormorant font-medium mb-6 text-black/80 dark:text-white/80">Featured</h2>
+              <h2 className="font-serif text-2xl italic mb-6 text-black/80 dark:text-white/80">Featured</h2>
               <div className="grid grid-cols-1 gap-6">
                 {featuredWorks.map((work) => (
                   <Link key={work.id} href={`/gallery/${work.id}`} className="group">
-                    <div className="relative overflow-hidden rounded-lg">
+                    <div className="relative overflow-hidden rounded-2xl border border-black/5 dark:border-white/10">
                       {work.featured_image_url && (
                         <img
                           src={work.featured_image_url}
                           alt={work.title}
-                          className="w-full h-96 object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-96 object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-8">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-8">
                         <div className="text-white">
-                          <span className="inline-block px-3 py-1 bg-yellow-500 text-black text-xs font-bold rounded-full mb-3">
-                            ⭐ FEATURED
+                          <span className="inline-block px-3 py-1 bg-amber-400 text-black font-sans text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
+                            ★ Featured
                           </span>
-                          <h3 className="text-2xl font-cormorant font-medium">{work.title}</h3>
-                          <p className="text-sm opacity-90 mt-1">{work.category}</p>
+                          <h3 className="font-serif text-2xl italic">{work.title}</h3>
+                          <p className="font-sans text-sm opacity-80 mt-1">{work.category}</p>
                         </div>
                       </div>
                     </div>
@@ -126,30 +126,38 @@ export default function Gallery() {
           )}
 
           {/* Categories Filter */}
-          <div className="mb-8">
-            <h3 className="text-sm font-bold text-black/60 dark:text-white/60 mb-4">FILTER BY CATEGORY</h3>
-            <div className="flex flex-wrap gap-3">
+          <div className="mb-10">
+            <h3 className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 dark:text-white/40 mb-4">
+              Filter by Category
+            </h3>
+            <div className="flex flex-wrap gap-x-8 gap-y-3">
               <button
                 onClick={() => setSelectedCategory(null)}
-                className={`px-4 py-2 rounded-full transition-colors text-sm ${
+                className={`relative pb-1 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
                   selectedCategory === null
-                    ? 'bg-black dark:bg-white text-white dark:text-black font-medium'
-                    : 'bg-black/5 dark:bg-white/5 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10'
+                    ? 'text-black dark:text-white'
+                    : 'text-black/40 dark:text-white/40 hover:text-black/70 dark:hover:text-white/70'
                 }`}
               >
                 All
+                {selectedCategory === null && (
+                  <span className="absolute -bottom-0.5 left-0 right-0 h-[1.5px] bg-violet-500" />
+                )}
               </button>
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-4 py-2 rounded-full transition-colors text-sm ${
+                  className={`relative pb-1 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
                     selectedCategory === cat
-                      ? 'bg-black dark:bg-white text-white dark:text-black font-medium'
-                      : 'bg-black/5 dark:bg-white/5 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10'
+                      ? 'text-black dark:text-white'
+                      : 'text-black/40 dark:text-white/40 hover:text-black/70 dark:hover:text-white/70'
                   }`}
                 >
                   {cat}
+                  {selectedCategory === cat && (
+                    <span className="absolute -bottom-0.5 left-0 right-0 h-[1.5px] bg-violet-500" />
+                  )}
                 </button>
               ))}
             </div>
@@ -159,28 +167,28 @@ export default function Gallery() {
           {loadingWorks ? (
             <SkeletonGrid count={6} />
           ) : filteredWorks.length === 0 ? (
-            <div className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg p-12 text-center">
+            <div className="bg-black/[0.02] dark:bg-white/[0.03] border border-dashed border-black/10 dark:border-white/15 rounded-2xl p-12 text-center">
               <div className="mb-4">
                 <span className="text-4xl">🎨</span>
               </div>
-              <h2 className="text-2xl font-cormorant font-medium mb-2">No Works Found</h2>
-              <p className="text-black/60 dark:text-white/60">
+              <h2 className="font-serif text-2xl italic mb-2">No Works Found</h2>
+              <p className="font-sans text-sm text-black/60 dark:text-white/60">
                 {selectedCategory
                   ? `No artworks in ${selectedCategory} category yet`
                   : 'No artworks published yet'}
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredWorks.map((work) => (
                 <Link key={work.id} href={`/gallery/${work.id}`} className="group">
                   <div className="space-y-4">
-                    <div className="relative overflow-hidden rounded-lg bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                    <div className="relative overflow-hidden rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 group-hover:border-violet-500/30 transition-colors">
                       {work.featured_image_url ? (
                         <img
                           src={work.featured_image_url}
                           alt={work.title}
-                          className="w-full aspect-square object-cover group-hover:scale-110 transition-transform duration-300"
+                          className="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
                         <div className="w-full aspect-square flex items-center justify-center bg-black/10 dark:bg-white/10">
@@ -189,11 +197,11 @@ export default function Gallery() {
                       )}
                     </div>
                     <div>
-                      <h3 className="text-lg font-cormorant font-medium line-clamp-2 group-hover:text-black/70 dark:group-hover:text-white/70 transition-colors">
+                      <h3 className="font-serif text-lg italic line-clamp-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
                         {work.title}
                       </h3>
-                      <div className="flex justify-between items-center mt-1">
-                        <p className="text-sm text-black/60 dark:text-white/60">{work.category}</p>
+                      <div className="flex justify-between items-center mt-1.5">
+                        <p className="font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50">{work.category}</p>
                         <RatingStars workId={work.id} readOnly showDetails={false} />
                       </div>
                     </div>
@@ -207,16 +215,16 @@ export default function Gallery() {
           <div className="mt-16 pt-8 border-t border-black/10 dark:border-white/10">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <p className="text-3xl font-bold text-black dark:text-white">{works.length}</p>
-                <p className="text-black/60 dark:text-white/60 text-sm mt-1">Total Works</p>
+                <p className="font-serif text-3xl italic text-black dark:text-white">{works.length}</p>
+                <p className="font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-1">Total Works</p>
               </div>
               <div>
-                <p className="text-3xl font-bold text-black dark:text-white">{CATEGORIES.length}</p>
-                <p className="text-black/60 dark:text-white/60 text-sm mt-1">Categories</p>
+                <p className="font-serif text-3xl italic text-black dark:text-white">{CATEGORIES.length}</p>
+                <p className="font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-1">Categories</p>
               </div>
               <div>
-                <p className="text-3xl font-bold text-black dark:text-white">{featuredWorks.length}</p>
-                <p className="text-black/60 dark:text-white/60 text-sm mt-1">Featured Works</p>
+                <p className="font-serif text-3xl italic text-black dark:text-white">{featuredWorks.length}</p>
+                <p className="font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-1">Featured Works</p>
               </div>
             </div>
           </div>

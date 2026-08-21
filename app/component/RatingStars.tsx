@@ -78,18 +78,12 @@ export default function RatingStars({
 
     setSubmitting(true);
     try {
-      // Upsert user rating
-      const { error } = await supabase.from('work_ratings').upsert(
-        {
-          work_id: workId,
-          user_id: userId,
-          rating: ratingValue,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'work_id, user_id' }
-      );
-
-      if (error) throw error;
+      const res = await fetch(`/api/works/${workId}/ratings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: ratingValue }),
+      });
+      if (!res.ok) throw new Error(await res.text());
 
       setUserRating(ratingValue);
       // Refresh statistics
@@ -115,22 +109,12 @@ export default function RatingStars({
     setSubmittingComment(true);
     try {
       if (commentText.trim()) {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        const metadata = currentUser?.user_metadata || {};
-        const fullName = metadata.full_name || currentUser?.email?.split('@')[0] || 'User';
-        const avatarUrl = metadata.avatar_url || null;
-
-        const { error } = await supabase
-          .from('work_comments')
-          .insert({
-            work_id: workId,
-            user_id: userId,
-            user_name: fullName,
-            user_avatar: avatarUrl,
-            content: commentText.trim(),
-          });
-
-        if (error) throw error;
+        const res = await fetch(`/api/works/${workId}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: commentText.trim() }),
+        });
+        if (!res.ok) throw new Error(await res.text());
       }
 
       setCommentText('');

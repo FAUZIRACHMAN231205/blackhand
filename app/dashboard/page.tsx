@@ -56,13 +56,6 @@ export default function Dashboard() {
     ? Math.floor((now.getTime() - accountCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  // Get auth provider from user metadata
-  const getAuthProvider = () => {
-    if (user.user_metadata?.provider) return user.user_metadata.provider;
-    if (user.identities?.length) return user.identities[0].provider;
-    return 'Email';
-  };
-
   // Format dates
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
@@ -125,12 +118,12 @@ export default function Dashboard() {
                   {greeting.text}
                 </span>
               </div>
-              <h1 className="text-5xl md:text-6xl font-cormorant font-medium tracking-tight">
+              <h1 className="text-5xl md:text-6xl font-serif italic font-medium tracking-tight">
                 Your Digital Identity
               </h1>
             </div>
             <p className="text-black/60 dark:text-white/60 text-lg font-sans">
-              Welcome back, <span className="font-semibold text-black/90 dark:text-white/90">{user.user_metadata?.full_name || user.email}</span>
+              Welcome back, <span className="font-semibold text-black/90 dark:text-white/90">{user.full_name || user.email}</span>
             </p>
           </div>
 
@@ -139,25 +132,25 @@ export default function Dashboard() {
             {/* Subtle glow edge inside */}
             <div className="absolute inset-0 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
-            {user.user_metadata?.avatar_url ? (
+            {user.avatar_url ? (
               <div className="relative">
                 <div className="absolute -inset-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-full blur opacity-30 group-hover:opacity-60 transition duration-500" />
                 <img
-                  src={user.user_metadata.avatar_url}
+                  src={user.avatar_url}
                   alt="User Avatar"
                   className="relative w-28 h-28 rounded-full border-4 border-white dark:border-slate-900 object-cover shadow-md"
                 />
               </div>
             ) : (
-              <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white text-4xl font-cormorant font-bold border-4 border-white dark:border-slate-900 shadow-md">
-                {(user.user_metadata?.full_name || user.email || 'B').charAt(0).toUpperCase()}
+              <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white text-4xl font-serif font-bold border-4 border-white dark:border-slate-900 shadow-md">
+                {(user.full_name || user.email || 'B').charAt(0).toUpperCase()}
               </div>
             )}
 
             <div className="flex-1 text-center md:text-left space-y-4">
               <div>
-                <h2 className="text-3xl font-cormorant font-semibold tracking-tight text-black dark:text-white">
-                  {user.user_metadata?.full_name || 'Blackhand User'}
+                <h2 className="text-3xl font-serif font-semibold tracking-tight text-black dark:text-white">
+                  {user.full_name || 'Blackhand User'}
                 </h2>
                 <p className="text-slate-500 dark:text-slate-400 text-sm font-sans font-medium mt-1">{user.email}</p>
               </div>
@@ -165,7 +158,7 @@ export default function Dashboard() {
               <div className="flex flex-wrap justify-center md:justify-start gap-3">
                 <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200/50 dark:border-slate-700/30 rounded-full text-xs font-sans font-bold text-slate-600 dark:text-slate-300">
                   <Lock size={12} className="opacity-60" />
-                  Provider: {getAuthProvider()}
+                  Provider: {user.provider === 'google' ? 'Google' : 'Email'}
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-violet-50/80 dark:bg-violet-950/20 border border-violet-100/50 dark:border-violet-900/25 rounded-full text-xs font-sans font-bold text-violet-700 dark:text-violet-400 shadow-sm shadow-violet-100/20 dark:shadow-none">
                   <Calendar size={12} className="opacity-75" />
@@ -185,7 +178,7 @@ export default function Dashboard() {
 
           {/* Statistics Section */}
           <div className="space-y-4">
-            <h3 className="text-xl font-cormorant font-bold text-black/85 dark:text-white/85 tracking-wide">Account Statistics</h3>
+            <h3 className="text-xl font-serif font-bold text-black/85 dark:text-white/85 tracking-wide">Account Statistics</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatsCard
                 icon={<UserIcon size={18} />}
@@ -220,13 +213,13 @@ export default function Dashboard() {
 
           {/* Quick Actions Section */}
           <div className="space-y-4">
-            <h3 className="text-xl font-cormorant font-bold text-black/85 dark:text-white/85 tracking-wide">Quick Actions</h3>
+            <h3 className="text-xl font-serif font-bold text-black/85 dark:text-white/85 tracking-wide">Quick Actions</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               
               <Link href="/gallery" className="group">
                 <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/40 rounded-2xl p-6 hover:-translate-y-1 hover:border-violet-500/20 dark:hover:border-violet-500/20 hover:shadow-lg transition-all duration-300">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-cormorant font-bold">Gallery</h3>
+                    <h3 className="text-lg font-serif font-bold">Gallery</h3>
                     <ArrowRight size={16} className="text-slate-400 group-hover:translate-x-1.5 group-hover:text-violet-500 transition-all duration-300" />
                   </div>
                   <p className="text-slate-500 dark:text-slate-400 text-sm font-sans">Browse all published artworks and collections</p>
@@ -236,7 +229,7 @@ export default function Dashboard() {
               <Link href="/settings" className="group">
                 <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/40 rounded-2xl p-6 hover:-translate-y-1 hover:border-violet-500/20 dark:hover:border-violet-500/20 hover:shadow-lg transition-all duration-300">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-cormorant font-bold">Settings</h3>
+                    <h3 className="text-lg font-serif font-bold">Settings</h3>
                     <ArrowRight size={16} className="text-slate-400 group-hover:translate-x-1.5 group-hover:text-violet-500 transition-all duration-300" />
                   </div>
                   <p className="text-slate-500 dark:text-slate-400 text-sm font-sans">Manage profile identity, security, and credentials</p>
@@ -248,7 +241,7 @@ export default function Dashboard() {
                 className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/40 rounded-2xl p-6 hover:-translate-y-1 hover:border-violet-500/20 dark:hover:border-violet-500/20 hover:shadow-lg transition-all duration-300 cursor-pointer group"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-cormorant font-bold">Support</h3>
+                  <h3 className="text-lg font-serif font-bold">Support</h3>
                   <ArrowRight size={16} className="text-slate-400 group-hover:translate-x-1.5 group-hover:text-violet-500 transition-all duration-300" />
                 </div>
                 <p className="text-slate-500 dark:text-slate-400 text-sm font-sans">Need help? Contact support or submit direct feedback</p>
@@ -265,7 +258,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-2">
                 <Info size={16} className="text-violet-500" />
-                <h3 className="text-lg font-cormorant font-bold text-black/85 dark:text-white/85">
+                <h3 className="text-lg font-serif font-bold text-black/85 dark:text-white/85">
                   Advanced Diagnostics & Session Info
                 </h3>
               </div>
@@ -318,7 +311,7 @@ export default function Dashboard() {
                 <div className="space-y-1.5">
                   <p className="text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">Auth Mechanism</p>
                   <p className="text-slate-800 dark:text-slate-200 text-sm font-semibold capitalize p-3 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-200/50 dark:border-slate-800/35">
-                    {getAuthProvider()}
+                    {user.provider === 'google' ? 'Google OAuth' : 'Email OTP'}
                   </p>
                 </div>
               </div>

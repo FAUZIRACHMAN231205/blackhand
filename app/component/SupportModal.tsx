@@ -45,7 +45,7 @@ export default function SupportModal({ isOpen, onClose }: SupportModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 className="text-2xl font-cormorant font-bold text-black dark:text-white">
+            <h2 className="text-2xl font-serif italic font-bold text-black dark:text-white">
               Customer Support & Feedback
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">

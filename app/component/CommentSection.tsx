@@ -99,28 +99,17 @@ export default function CommentSection({
     setError(null);
 
     try {
-      // Get user metadata for display name/avatar
-      const { data: { user } } = await supabase.auth.getUser();
-      const metadata = user?.user_metadata || {};
-      const fullName = metadata.full_name || user?.email?.split('@')[0] || 'User';
-      const avatarUrl = metadata.avatar_url || null;
+      const res = await fetch(`/api/works/${workId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newComment.trim() }),
+      });
+      const data = await res.json();
 
-      const { data, error } = await supabase
-        .from('work_comments')
-        .insert({
-          work_id: workId,
-          user_id: userId,
-          user_name: fullName,
-          user_avatar: avatarUrl,
-          content: newComment.trim(),
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      if (!res.ok) throw new Error(data.error || 'Failed to add comment');
 
       // Update local comments list
-      setComments((prev) => [data, ...prev]);
+      setComments((prev) => [data.comment, ...prev]);
       setNewComment('');
     } catch (err) {
       console.error('Error adding comment:', err);
@@ -137,12 +126,8 @@ export default function CommentSection({
     setError(null);
 
     try {
-      const { error } = await supabase
-        .from('work_comments')
-        .delete()
-        .eq('id', commentId);
-
-      if (error) throw error;
+      const res = await fetch(`/api/comments/${commentId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(await res.text());
 
       // Update local comments list
       setComments((prev) => prev.filter((c) => c.id !== commentId));

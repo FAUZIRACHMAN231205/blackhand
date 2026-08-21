@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Poppins } from "next/font/google";
 import "./globals.css";
 import ErrorBoundary from "./component/ErrorBoundary";
 import { ThemeProvider } from "./context/ThemeContext";
+import { ToastProvider } from "./context/ToastContext";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -33,7 +34,9 @@ export default function RootLayout({
       <body className={`${cormorant.variable} ${poppins.variable} antialiased bg-white dark:bg-slate-950 text-black dark:text-white transition-colors duration-300`}>
         <ErrorBoundary>
           <ThemeProvider>
-            {children}
+            <ToastProvider>
+              {children}
+            </ToastProvider>
           </ThemeProvider>
         </ErrorBoundary>
       </body>
