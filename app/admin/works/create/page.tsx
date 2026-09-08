@@ -278,7 +278,7 @@ export default function CreateWork() {
                 Images (Up to {MAX_IMAGES})
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-3 sm:gap-6">
                 {images.map((image, index) => (
                   <div key={index} className="border-2 border-dashed border-black/10 dark:border-white/15 rounded-xl p-4 hover:border-violet-500/30 transition-colors">
                     <div className="relative">
@@ -289,7 +289,7 @@ export default function CreateWork() {
                             alt={`Preview ${index + 1}`}
                             className="w-full h-48 object-cover rounded-lg"
                           />
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <button
                               type="button"
                               onClick={() => handleImageRemove(index)}
@@ -322,7 +322,7 @@ export default function CreateWork() {
                             }}
                             className="hidden"
                           />
-                          <div className="flex flex-col items-center justify-center py-8">
+                          <div className="flex flex-col items-center justify-center py-6">
                             <Upload size={26} strokeWidth={1.5} className="text-black/30 dark:text-white/30 mb-2" />
                             <p className="font-sans text-xs font-bold text-black/60 dark:text-white/60">Image {index + 1}</p>
                             <p className="font-sans text-[10px] text-black/40 dark:text-white/40 mt-0.5">Click to upload</p>

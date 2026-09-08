@@ -262,7 +262,7 @@ export default function EditWork() {
             <div className={cardClass}>
               <h2 className="font-serif text-lg italic">Images ({workImages.length})</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-3 sm:gap-6">
                 {workImages.map((image) => (
                   <div key={image.id} className="border border-black/10 dark:border-white/10 rounded-xl overflow-hidden transition-colors shadow-sm">
                     <img
@@ -272,7 +272,7 @@ export default function EditWork() {
                     />
                     <div className="p-4 space-y-2">
                       <p className="font-sans text-xs text-black/50 dark:text-white/50">Image {image.display_order}</p>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           type="button"
                           onClick={() => handleSetFeatured(image.id)}

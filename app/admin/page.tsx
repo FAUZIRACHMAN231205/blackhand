@@ -81,23 +81,27 @@ export default function AdminDashboard() {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 mb-8 sm:mb-12">
             {statCards.map((stat) => (
               <div
                 key={stat.label}
-                className="bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-6 shadow-sm backdrop-blur-sm transition-colors"
+                className="bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-4 sm:p-6 shadow-sm backdrop-blur-sm transition-colors"
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-violet-500/10 text-violet-500 dark:text-violet-400">
-                    <BarChart3 size={18} strokeWidth={1.5} />
+                {/* On mobile: icon + label on the left, value on the right (compact row).
+                    On sm+: stacked (icon+label, then value). */}
+                <div className="flex items-center justify-between gap-3 sm:block">
+                  <div className="flex items-center gap-3 sm:mb-4">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-violet-500/10 text-violet-500 dark:text-violet-400 shrink-0">
+                      <BarChart3 size={18} strokeWidth={1.5} />
+                    </div>
+                    <h3 className="font-sans text-[11px] font-bold uppercase tracking-[0.15em] text-black/60 dark:text-white/60">
+                      {stat.label}
+                    </h3>
                   </div>
-                  <h3 className="font-sans text-[11px] font-bold uppercase tracking-[0.15em] text-black/60 dark:text-white/60">
-                    {stat.label}
-                  </h3>
+                  <p className="font-serif text-3xl sm:text-4xl italic text-black dark:text-white shrink-0">
+                    {loadingStats ? '···' : stat.value}
+                  </p>
                 </div>
-                <p className="font-serif text-4xl italic text-black dark:text-white">
-                  {loadingStats ? '···' : stat.value}
-                </p>
                 <p className="font-sans text-xs text-black/50 dark:text-white/50 mt-2">{stat.sub}</p>
               </div>
             ))}
