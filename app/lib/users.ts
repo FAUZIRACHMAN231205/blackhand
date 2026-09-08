@@ -51,3 +51,19 @@ export async function upsertUser({ email, full_name, avatar_url, provider }: Ups
   if (error || !created) throw error || new Error('Failed to create user');
   return created as User;
 }
+
+// Fetch the current, authoritative user row by id. Used at authorization
+// boundaries to read the live role instead of trusting the session JWT.
+export async function getUserById(id: string): Promise<User | null> {
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select(USER_COLUMNS)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching user by id:', error);
+    return null;
+  }
+  return (data as User) ?? null;
+}
