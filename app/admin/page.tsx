@@ -20,7 +20,7 @@ export default function AdminDashboard() {
     if (!loading) {
       if (!user) {
         router.push('/');
-      } else if (!isAdmin(user.email)) {
+      } else if (!isAdmin(user)) {
         router.push('/dashboard');
       }
     }
@@ -44,7 +44,7 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (user && isAdmin(user.email)) {
+    if (user && isAdmin(user)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchStats();
     }
@@ -54,7 +54,7 @@ export default function AdminDashboard() {
     return <LoadingSpinner />;
   }
 
-  if (!user || !isAdmin(user.email)) {
+  if (!user || !isAdmin(user)) {
     return null;
   }
 
@@ -72,7 +72,7 @@ export default function AdminDashboard() {
         <div className="max-w-6xl mx-auto">
           {/* Header Section */}
           <div className="mb-12">
-            <h1 className="font-serif text-5xl md:text-6xl italic font-medium mb-2">
+            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-2">
               Admin Panel
             </h1>
             <p className="font-sans text-sm text-black/60 dark:text-white/60">

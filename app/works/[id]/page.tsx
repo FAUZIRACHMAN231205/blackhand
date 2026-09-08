@@ -134,7 +134,7 @@ export default function WorkDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Image */}
             <div className="lg:col-span-2">
-              <div className="relative bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden mb-3 flex items-center justify-center" style={{ height: '500px' }}>
+              <div className="relative bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden mb-3 flex items-center justify-center h-[60vh] md:h-[500px]">
                 <img
                   src={currentImage.image_url}
                   alt={work.title}
@@ -214,7 +214,7 @@ export default function WorkDetail() {
                 {work.description && (
                   <div className="border-t border-black/5 dark:border-white/10 pt-4">
                     <h3 className="font-sans text-[10px] font-bold text-black/50 dark:text-white/50 mb-3 uppercase tracking-[0.2em]">Description</h3>
-                    <p className="font-sans text-black/70 dark:text-white/70 leading-relaxed text-sm font-light">
+                    <p className="font-augustus uppercase text-xs md:text-sm text-black/70 dark:text-white/70 leading-relaxed tracking-widest whitespace-pre-wrap">
                       {work.description}
                     </p>
                   </div>

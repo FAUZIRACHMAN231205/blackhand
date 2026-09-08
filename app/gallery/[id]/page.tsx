@@ -23,6 +23,7 @@ export default function GalleryDetail() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loadingWork, setLoadingWork] = useState(true);
   const [ratingsVersion, setRatingsVersion] = useState(0);
+  const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     // Redirect ke home jika belum login
@@ -105,6 +106,7 @@ export default function GalleryDetail() {
   }
 
   const currentImage = images[currentImageIndex];
+  const isLongDescription = (work.description?.length ?? 0) > 280;
 
   return (
     <>
@@ -121,10 +123,10 @@ export default function GalleryDetail() {
             <span className="font-sans text-sm font-medium">Back to Gallery</span>
           </button>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:items-start">
             {/* Main Image */}
-            <div className="lg:col-span-2">
-              <div className="relative bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden mb-3 flex items-center justify-center" style={{ height: '500px' }}>
+            <div className="lg:col-span-2 lg:col-start-1 lg:row-start-1">
+              <div className="relative bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden mb-3 flex items-center justify-center h-[60vh] md:h-[500px]">
                 <img
                   src={currentImage.image_url}
                   alt={work.title}
@@ -181,32 +183,10 @@ export default function GalleryDetail() {
                 </div>
               )}
 
-              {/* Description Section */}
-              {work.description && (
-                <div className="mt-8 border-t border-black/10 dark:border-white/10 pt-6">
-                  <h3 className="font-sans text-[10px] font-bold text-black/50 dark:text-white/50 mb-4 uppercase tracking-[0.2em]">
-                    About the Artwork
-                  </h3>
-                  <p className="font-sans text-base text-slate-700 dark:text-slate-300 leading-relaxed font-light whitespace-pre-wrap">
-                    {work.description}
-                  </p>
-                </div>
-              )}
-
-              {/* Comments Section */}
-              <div className="mt-12 pt-8 border-t border-black/10 dark:border-white/10">
-                <CommentSection
-                  workId={workId}
-                  userId={user.id}
-                  userEmail={user.email || ''}
-                  isAdmin={user.email ? checkAdmin(user.email) : false}
-                  ratingsVersion={ratingsVersion}
-                />
-              </div>
             </div>
 
-            {/* Info Panel */}
-            <div className="lg:col-span-1">
+            {/* Info Panel — right column on desktop, directly under the image on mobile */}
+            <div className="lg:col-span-1 lg:col-start-3 lg:row-start-1">
               <div className="bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-6 space-y-5 sticky top-20 shadow-sm backdrop-blur-sm transition-colors">
                 <div>
                   <h1 className="font-serif text-2xl italic mb-3 text-black dark:text-white">
@@ -260,6 +240,42 @@ export default function GalleryDetail() {
                   View All Works
                 </button>
               </div>
+            </div>
+
+            {/* Description */}
+            {work.description && (
+              <div className="lg:col-span-2 lg:col-start-1 border-t border-black/10 dark:border-white/10 pt-6">
+                <h3 className="font-sans text-[10px] font-bold text-black/50 dark:text-white/50 mb-4 uppercase tracking-[0.2em]">
+                  About the Artwork
+                </h3>
+                <p
+                  className={`font-augustus uppercase text-xs md:text-sm text-slate-700 dark:text-slate-300 leading-relaxed tracking-wide whitespace-pre-wrap ${
+                    !descExpanded && isLongDescription ? 'line-clamp-6' : ''
+                  }`}
+                >
+                  {work.description}
+                </p>
+                {isLongDescription && (
+                  <button
+                    type="button"
+                    onClick={() => setDescExpanded((v) => !v)}
+                    className="mt-3 font-sans text-[11px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition-colors"
+                  >
+                    {descExpanded ? 'Ringkas' : 'Selengkapnya'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Comments */}
+            <div className="lg:col-span-2 lg:col-start-1 pt-8 border-t border-black/10 dark:border-white/10">
+              <CommentSection
+                workId={workId}
+                userId={user.id}
+                userEmail={user.email || ''}
+                isAdmin={checkAdmin(user)}
+                ratingsVersion={ratingsVersion}
+              />
             </div>
           </div>
         </div>

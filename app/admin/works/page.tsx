@@ -34,7 +34,7 @@ export default function AdminWorks() {
     if (!loading) {
       if (!user) {
         router.push('/');
-      } else if (!isAdmin(user.email)) {
+      } else if (!isAdmin(user)) {
         router.push('/dashboard');
       }
     }
@@ -58,7 +58,7 @@ export default function AdminWorks() {
 
   useEffect(() => {
     // Fetch works dari database
-    if (user && isAdmin(user.email)) {
+    if (user && isAdmin(user)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchWorks();
     }
@@ -92,7 +92,7 @@ export default function AdminWorks() {
     return <LoadingSpinner />;
   }
 
-  if (!user || !isAdmin(user.email)) {
+  if (!user || !isAdmin(user)) {
     return null;
   }
 
@@ -111,9 +111,9 @@ export default function AdminWorks() {
             <span className="font-sans text-sm font-medium">Back to Admin</span>
           </button>
 
-          <div className="flex justify-between items-center mb-12">
+          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center mb-12">
             <div>
-              <h1 className="font-serif text-5xl md:text-6xl italic font-medium mb-2">
+              <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-2">
                 Manage Works
               </h1>
               <p className="font-sans text-sm text-black/60 dark:text-white/60">
@@ -122,7 +122,7 @@ export default function AdminWorks() {
             </div>
             <Link
               href="/admin/works/create"
-              className="flex items-center gap-2 px-6 py-3.5 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:opacity-90 transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
+              className="self-start sm:self-auto flex items-center gap-2 px-6 py-3.5 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:opacity-90 transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
             >
               <Plus size={16} />
               <span>New Work</span>

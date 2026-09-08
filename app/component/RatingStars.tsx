@@ -162,9 +162,9 @@ export default function RatingStars({
           onMouseEnter={() => !readOnly && setHoverRating(i)}
           onMouseLeave={() => !readOnly && setHoverRating(null)}
           className={`transition-all duration-150 relative ${
-            readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110 active:scale-95'
+            readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110 active:scale-95 flex items-center justify-center min-h-[44px] min-w-[44px]'
           } ${submitting ? 'opacity-50' : ''}`}
-          style={{ width: size, height: size }}
+          style={readOnly ? { width: size, height: size } : undefined}
         >
           {isFull ? (
             <Star

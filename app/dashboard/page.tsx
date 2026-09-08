@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 import Navbar from '../component/Navbar';
 import StatsCard from '../component/StatsCard';
 import SupportModal from '../component/SupportModal';
@@ -30,6 +31,8 @@ export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
   
+  const { setTheme } = useTheme();
+  
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -38,8 +41,14 @@ export default function Dashboard() {
     // Redirect ke home jika belum login
     if (!loading && !user) {
       router.push('/');
+    } else if (user) {
+      const hasAppliedLoginTheme = sessionStorage.getItem('bh_login_theme_applied');
+      if (!hasAppliedLoginTheme) {
+        setTheme('dark');
+        sessionStorage.setItem('bh_login_theme_applied', 'true');
+      }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, setTheme]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -118,7 +127,7 @@ export default function Dashboard() {
                   {greeting.text}
                 </span>
               </div>
-              <h1 className="text-5xl md:text-6xl font-serif italic font-medium tracking-tight">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif italic font-medium tracking-tight">
                 Your Digital Identity
               </h1>
             </div>
@@ -128,7 +137,7 @@ export default function Dashboard() {
           </div>
 
           {/* User Profile Card (Premium Redesign) */}
-          <div className="relative bg-gradient-to-br from-slate-50/50 via-white to-slate-50/50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-950/60 border border-slate-200/60 dark:border-slate-800/45 rounded-3xl p-8 flex flex-col md:flex-row items-center gap-8 shadow-xl shadow-slate-100/30 dark:shadow-none overflow-hidden group hover:border-violet-500/20 dark:hover:border-violet-500/10 transition-all duration-500">
+          <div className="relative bg-gradient-to-br from-slate-50/50 via-white to-slate-50/50 dark:from-slate-900/80 dark:via-slate-900/60 dark:to-slate-950/80 border border-slate-200/60 dark:border-slate-800/45 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 md:gap-8 shadow-xl shadow-slate-100/30 dark:shadow-none overflow-hidden group hover:border-violet-500/20 dark:hover:border-violet-500/10 transition-all duration-500">
             {/* Subtle glow edge inside */}
             <div className="absolute inset-0 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
@@ -138,11 +147,11 @@ export default function Dashboard() {
                 <img
                   src={user.avatar_url}
                   alt="User Avatar"
-                  className="relative w-28 h-28 rounded-full border-4 border-white dark:border-slate-900 object-cover shadow-md"
+                  className="relative w-20 h-20 md:w-28 md:h-28 rounded-full border-4 border-white dark:border-slate-900 object-cover shadow-md"
                 />
               </div>
             ) : (
-              <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white text-4xl font-serif font-bold border-4 border-white dark:border-slate-900 shadow-md">
+              <div className="relative w-20 h-20 md:w-28 md:h-28 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white text-3xl md:text-4xl font-serif font-bold border-4 border-white dark:border-slate-900 shadow-md">
                 {(user.full_name || user.email || 'B').charAt(0).toUpperCase()}
               </div>
             )}

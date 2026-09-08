@@ -129,10 +129,10 @@ function FeedPost({
 
   return (
     <article
-      className={`animate-fade-in-up ${staggerClass} relative bg-white/80 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/40 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300`}
+      className={`animate-fade-in-up ${staggerClass} relative bg-white/80 dark:bg-slate-900/50 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300`}
     >
       {/* Post Header */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-3">
+      <div className="flex items-center justify-between px-4 md:px-6 pt-4 md:pt-5 pb-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white text-xs font-bold font-sans shadow-md">
             BH
@@ -176,7 +176,7 @@ function FeedPost({
       )}
 
       {/* Post Content */}
-      <div className="px-6 pt-4 pb-2 space-y-3">
+      <div className="px-4 md:px-6 pt-4 pb-2 space-y-3">
         {/* Title + Category */}
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-xl font-serif italic font-semibold text-slate-900 dark:text-white leading-tight">
@@ -205,7 +205,7 @@ function FeedPost({
       </div>
 
       {/* Expand / Collapse Images & Grid wrapper */}
-      <div className="px-6 pb-5 pt-2 border-t border-slate-100/50 dark:border-slate-800/20 mt-2">
+      <div className="px-4 md:px-6 pb-5 pt-2 border-t border-slate-100/50 dark:border-slate-800/20 mt-2">
         {/* Buttons Row */}
         <div className="flex justify-between items-center py-2">
           <button
@@ -416,7 +416,7 @@ export default function ActivityFeed() {
                 Activity Feed
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-serif italic font-medium tracking-tight mb-2">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif italic font-medium tracking-tight mb-2">
               What&apos;s New
             </h1>
             <p className="text-black/60 dark:text-white/60 text-base font-sans">

@@ -182,7 +182,7 @@ export default function CommentSection({
               ) : (
                 <Send size={12} />
               )}
-              Kirimi
+              Kirim
             </button>
           </div>
         </div>

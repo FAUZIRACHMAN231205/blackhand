@@ -25,7 +25,7 @@ interface ImageUpload {
 const inputClass =
   'w-full px-4 py-3.5 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-sm';
 const labelClass = 'block font-sans text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-white/50 mb-2.5';
-const cardClass = 'bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-8 space-y-6 transition-colors shadow-sm backdrop-blur-sm';
+const cardClass = 'bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-8 space-y-6 transition-colors shadow-sm backdrop-blur-sm';
 
 export default function CreateWork() {
   const { user, loading } = useAuth();
@@ -50,13 +50,13 @@ export default function CreateWork() {
     if (!loading) {
       if (!user) {
         router.push('/');
-      } else if (!isAdmin(user.email)) {
+      } else if (!isAdmin(user)) {
         router.push('/dashboard');
       }
     }
   }, [user, loading, router]);
 
-  if (loading || !user || !isAdmin(user.email)) {
+  if (loading || !user || !isAdmin(user)) {
     return <LoadingSpinner />;
   }
 
@@ -206,7 +206,7 @@ export default function CreateWork() {
 
           {/* Header */}
           <div className="mb-12">
-            <h1 className="font-serif text-5xl md:text-6xl italic font-medium mb-2">
+            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-2">
               Upload New Work
             </h1>
             <p className="font-sans text-sm text-black/60 dark:text-white/60">
@@ -242,7 +242,7 @@ export default function CreateWork() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Category *</label>
                   <select

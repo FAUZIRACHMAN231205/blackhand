@@ -2,6 +2,8 @@ import 'server-only';
 import { supabaseAdmin } from './supabaseAdmin';
 import type { User } from '@/app/types';
 
+const USER_COLUMNS = 'id, email, full_name, avatar_url, provider, role, created_at, last_sign_in_at';
+
 interface UpsertUserInput {
   email: string;
   full_name?: string | null;
@@ -14,7 +16,7 @@ export async function upsertUser({ email, full_name, avatar_url, provider }: Ups
 
   const { data: existing } = await supabaseAdmin
     .from('users')
-    .select('id, email, full_name, avatar_url, provider, created_at, last_sign_in_at')
+    .select(USER_COLUMNS)
     .eq('email', normalizedEmail)
     .maybeSingle();
 
@@ -27,7 +29,7 @@ export async function upsertUser({ email, full_name, avatar_url, provider }: Ups
         last_sign_in_at: new Date().toISOString(),
       })
       .eq('id', existing.id)
-      .select('id, email, full_name, avatar_url, provider, created_at, last_sign_in_at')
+      .select(USER_COLUMNS)
       .single();
 
     if (error || !updated) throw error || new Error('Failed to update user');
@@ -43,7 +45,7 @@ export async function upsertUser({ email, full_name, avatar_url, provider }: Ups
       provider,
       last_sign_in_at: new Date().toISOString(),
     })
-    .select('id, email, full_name, avatar_url, provider, created_at, last_sign_in_at')
+    .select(USER_COLUMNS)
     .single();
 
   if (error || !created) throw error || new Error('Failed to create user');

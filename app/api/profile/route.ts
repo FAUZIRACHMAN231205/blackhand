@@ -18,7 +18,7 @@ export async function PATCH(request: NextRequest) {
       .from('users')
       .update({ full_name: full_name.trim() })
       .eq('id', auth.user.id)
-      .select('id, email, full_name, avatar_url, provider, created_at, last_sign_in_at')
+      .select('id, email, full_name, avatar_url, provider, role, created_at, last_sign_in_at')
       .single();
 
     if (error || !data) {

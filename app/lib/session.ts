@@ -31,6 +31,7 @@ export async function verifySession(token: string): Promise<User | null> {
       full_name: (payload.full_name as string | null) ?? null,
       avatar_url: (payload.avatar_url as string | null) ?? null,
       provider: payload.provider as string,
+      role: (payload.role as 'user' | 'admin') ?? 'user',
       created_at: payload.created_at as string | undefined,
       last_sign_in_at: payload.last_sign_in_at as string | undefined,
     };

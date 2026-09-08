@@ -86,7 +86,7 @@ export default function Gallery() {
 
           {/* Header Section */}
           <div className="mb-12">
-            <h1 className="font-serif text-5xl md:text-6xl italic font-medium mb-2">
+            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl italic font-medium mb-2">
               Gallery
             </h1>
             <p className="font-sans text-black/60 dark:text-white/60 text-lg">
@@ -106,6 +106,7 @@ export default function Gallery() {
                         <img
                           src={work.featured_image_url}
                           alt={work.title}
+                          loading="lazy"
                           className="w-full h-96 object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       )}
@@ -127,10 +128,10 @@ export default function Gallery() {
 
           {/* Categories Filter */}
           <div className="mb-10">
-            <h3 className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 dark:text-white/40 mb-4">
+            <h3 className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 dark:text-white/40 mb-4 px-1">
               Filter by Category
             </h3>
-            <div className="flex flex-wrap gap-x-8 gap-y-3">
+            <div className="flex flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible hide-scrollbar pb-2 md:pb-0 gap-x-6 md:gap-x-8 px-1">
               <button
                 onClick={() => setSelectedCategory(null)}
                 className={`relative pb-1 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
@@ -167,11 +168,11 @@ export default function Gallery() {
           {loadingWorks ? (
             <SkeletonGrid count={6} />
           ) : filteredWorks.length === 0 ? (
-            <div className="bg-black/[0.02] dark:bg-white/[0.03] border border-dashed border-black/10 dark:border-white/15 rounded-2xl p-12 text-center">
+            <div className="bg-black/[0.02] dark:bg-slate-900/40 border border-dashed border-black/10 dark:border-white/10 rounded-2xl p-12 text-center">
               <div className="mb-4">
-                <span className="text-4xl">🎨</span>
+                <span className="text-4xl opacity-80">🎨</span>
               </div>
-              <h2 className="font-serif text-2xl italic mb-2">No Works Found</h2>
+              <h2 className="font-serif text-2xl italic mb-2 text-black/90 dark:text-white/90">No Works Found</h2>
               <p className="font-sans text-sm text-black/60 dark:text-white/60">
                 {selectedCategory
                   ? `No artworks in ${selectedCategory} category yet`
@@ -188,6 +189,7 @@ export default function Gallery() {
                         <img
                           src={work.featured_image_url}
                           alt={work.title}
+                          loading="lazy"
                           className="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
@@ -212,19 +214,19 @@ export default function Gallery() {
           )}
 
           {/* Stats */}
-          <div className="mt-16 pt-8 border-t border-black/10 dark:border-white/10">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="mt-10 sm:mt-16 pt-6 sm:pt-8 border-t border-black/10 dark:border-white/10">
+            <div className="grid grid-cols-3 gap-3 sm:gap-6">
               <div>
-                <p className="font-serif text-3xl italic text-black dark:text-white">{works.length}</p>
-                <p className="font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-1">Total Works</p>
+                <p className="font-serif text-2xl sm:text-3xl italic text-black dark:text-white">{works.length}</p>
+                <p className="font-sans text-[10px] sm:text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-0.5 sm:mt-1">Total Works</p>
               </div>
               <div>
-                <p className="font-serif text-3xl italic text-black dark:text-white">{CATEGORIES.length}</p>
-                <p className="font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-1">Categories</p>
+                <p className="font-serif text-2xl sm:text-3xl italic text-black dark:text-white">{CATEGORIES.length}</p>
+                <p className="font-sans text-[10px] sm:text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-0.5 sm:mt-1">Categories</p>
               </div>
               <div>
-                <p className="font-serif text-3xl italic text-black dark:text-white">{featuredWorks.length}</p>
-                <p className="font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-1">Featured Works</p>
+                <p className="font-serif text-2xl sm:text-3xl italic text-black dark:text-white">{featuredWorks.length}</p>
+                <p className="font-sans text-[10px] sm:text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-0.5 sm:mt-1">Featured Works</p>
               </div>
             </div>
           </div>

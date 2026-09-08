@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, AlertCircle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const router = useRouter();
   const { showToast } = useToast();
+  const { setTheme } = useTheme();
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -89,7 +91,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         throw new Error(data.error || 'Verification failed');
       }
 
-      // Jika berhasil login, tutup modal dan redirect ke dashboard
+      // Jika berhasil login, atur default dark mode, tutup modal dan redirect ke dashboard
+      setTheme('dark');
       onClose();
       router.push('/dashboard');
     } catch (error: unknown) {
@@ -111,18 +114,22 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative w-full max-w-[420px] bg-zinc-950 border border-white/10 p-10 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Ambient accent glow */}
-        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-56 h-56 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative w-full max-w-[420px] bg-zinc-950 border border-white/10 p-6 sm:p-10 rounded-2xl shadow-2xl overflow-hidden">
+        {/* Ambient accent glow - refined for dark art vibe */}
+        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-48 h-48 sm:w-56 sm:h-56 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <button onClick={onClose} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors">
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-2 right-2 sm:top-4 sm:right-4 flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+        >
           <X size={20} />
         </button>
 
-        <div className="relative z-10 flex flex-col">
+        <div className="relative z-10 flex flex-col mt-2 sm:mt-0">
           {/* Header Section */}
-          <div className="mb-8 text-left">
-            <h2 className="font-serif text-4xl italic mb-1 text-white">
+          <div className="mb-6 sm:mb-8 text-left">
+            <h2 className="font-serif text-3xl sm:text-4xl italic mb-1 text-white">
               {step === 'email' ? 'Identity' : 'Enter code'}
             </h2>
             <p className="font-sans text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">
@@ -166,9 +173,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <form onSubmit={handleSendOTP} className="space-y-5">
                 <div className="space-y-1.5 text-left">
                   <label className="font-sans text-[9px] uppercase tracking-widest text-zinc-400 ml-1">Email Address</label>
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     required
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     disabled={loading}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -189,13 +200,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             /* STEP 2: OTP INPUT VERIFICATION */
             <form onSubmit={handleVerifyOTP} className="space-y-6">
               <div className="space-y-1.5 text-left">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
                   maxLength={6}
                   disabled={loading}
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="6-digit code"
                   className="w-full bg-white/5 border border-white/10 px-4 py-4 rounded-xl font-sans text-center text-xl tracking-[0.5em] text-white focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all placeholder:tracking-normal placeholder:text-sm placeholder:text-zinc-700 disabled:opacity-50"
                 />

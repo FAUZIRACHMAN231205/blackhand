@@ -6,6 +6,7 @@ export interface User {
   full_name: string | null;
   avatar_url: string | null;
   provider: string;
+  role: 'user' | 'admin';
   created_at?: string;
   last_sign_in_at?: string;
 }

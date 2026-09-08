@@ -19,7 +19,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
 
   const isOwner = comment.user_id === auth.user.id;
-  if (!isOwner && !isAdmin(auth.user.email)) {
+  if (!isOwner && !isAdmin(auth.user)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

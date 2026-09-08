@@ -1,23 +1,14 @@
 // Admin helper untuk check authorization
+// Role-based: checks user.role from the database instead of a hardcoded email list.
 
-const ADMIN_EMAILS = [
-  'manyungalang@gmail.com',
-  'fauzirachman10091985@gmail.com'
-];
+import type { User } from '@/app/types';
 
 /**
  * Check apakah user adalah admin
- * @param userEmail - Email dari authenticated user
- * @returns true jika user adalah admin
+ * @param user - User object (or null/undefined)
+ * @returns true jika user memiliki role 'admin'
  */
-export function isAdmin(userEmail: string | undefined): boolean {
-  if (!userEmail) return false;
-  return ADMIN_EMAILS.includes(userEmail.toLowerCase());
-}
-
-/**
- * Get admin email list
- */
-export function getAdminEmails(): string[] {
-  return ADMIN_EMAILS;
+export function isAdmin(user: User | null | undefined): boolean {
+  if (!user) return false;
+  return user.role === 'admin';
 }

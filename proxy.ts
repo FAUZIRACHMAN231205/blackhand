@@ -13,11 +13,18 @@ const SESSION_COOKIE = 'bh_session';
 const PROTECTED_PATHS = ['/dashboard', '/settings', '/gallery', '/works', '/admin'];
 const ADMIN_ONLY_PATHS = ['/admin'];
 
-async function readSessionEmail(token: string | undefined): Promise<string | null> {
+async function readSessionUser(token: string | undefined) {
   if (!token || !process.env.SESSION_SECRET) return null;
   try {
     const { payload } = await jwtVerify(token, new TextEncoder().encode(process.env.SESSION_SECRET));
-    return (payload.email as string) ?? null;
+    return {
+      id: payload.id as string,
+      email: payload.email as string,
+      full_name: (payload.full_name as string | null) ?? null,
+      avatar_url: (payload.avatar_url as string | null) ?? null,
+      provider: payload.provider as string,
+      role: (payload.role as 'user' | 'admin') ?? 'user',
+    };
   } catch {
     return null;
   }
@@ -29,14 +36,14 @@ export async function proxy(request: NextRequest) {
   if (!isProtected) return NextResponse.next();
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
-  const email = await readSessionEmail(token);
+  const user = await readSessionUser(token);
 
-  if (!email) {
+  if (!user) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
   const isAdminPath = ADMIN_ONLY_PATHS.some((p) => pathname.startsWith(p));
-  if (isAdminPath && !isAdmin(email)) {
+  if (isAdminPath && !isAdmin(user)) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

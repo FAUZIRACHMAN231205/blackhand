@@ -17,7 +17,7 @@ export async function requireUser(): Promise<Guard> {
 export async function requireAdmin(): Promise<Guard> {
   const result = await requireUser();
   if ('error' in result) return result;
-  if (!isAdmin(result.user.email)) {
+  if (!isAdmin(result.user)) {
     return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
   return result;
