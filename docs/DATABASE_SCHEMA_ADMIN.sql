@@ -1,4 +1,11 @@
 -- Database Schema untuk BLACKHAND Admin & Works Management
+--
+-- NOTE: This is the INITIAL schema (Supabase-Auth era). It still creates the
+-- required `works` and `work_images` tables, BUT the `created_by REFERENCES
+-- auth.users(id)` foreign key and the hardcoded-email RLS policies below are
+-- SUPERSEDED by docs/DATABASE_SCHEMA_CUSTOM_AUTH.sql, which swaps the foreign
+-- keys to the custom `public.users` table and replaces these auth-JWT policies.
+-- Run the migrations in the order documented in the README.
 
 -- Table untuk menyimpan album/karya
 CREATE TABLE IF NOT EXISTS works (

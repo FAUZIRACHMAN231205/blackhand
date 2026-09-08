@@ -1,5 +1,12 @@
 -- SQL Migration for Ratings and Comments Feature
 -- Run these commands in your Supabase SQL Editor
+--
+-- NOTE: This is the INITIAL schema (Supabase-Auth era). It still creates the
+-- required `work_ratings` and `work_comments` tables, BUT the `user_id
+-- REFERENCES auth.users(id)` foreign keys and the hardcoded-email RLS policies
+-- below are SUPERSEDED by docs/DATABASE_SCHEMA_CUSTOM_AUTH.sql, which swaps the
+-- foreign keys to the custom `public.users` table and reworks RLS for the
+-- custom-auth model. Run the migrations in the order documented in the README.
 
 -- 1. Create work_ratings Table
 CREATE TABLE IF NOT EXISTS public.work_ratings (
