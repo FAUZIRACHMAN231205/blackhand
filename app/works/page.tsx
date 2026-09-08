@@ -63,38 +63,22 @@ function getDateGroup(dateStr: string): string {
 function FeedPost({
   work,
   index,
+  stats,
 }: {
   work: Work & { images?: WorkImage[] };
   index: number;
+  stats?: { average: number; count: number; comments: number } | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
   const [images, setImages] = useState<WorkImage[]>(work.images || []);
-  const [commentCount, setCommentCount] = useState<number>(0);
+  const commentCount = stats?.comments ?? 0;
 
   const isNew =
     Math.floor(
       (new Date().getTime() - new Date(work.created_at).getTime()) /
         (1000 * 60 * 60 * 24)
     ) < 3;
-
-  useEffect(() => {
-    const fetchCommentCount = async () => {
-      try {
-        const { count, error } = await supabase
-          .from('work_comments')
-          .select('*', { count: 'exact', head: true })
-          .eq('work_id', work.id);
-        
-        if (!error && count !== null) {
-          setCommentCount(count);
-        }
-      } catch (err) {
-        console.error('Error fetching comment count:', err);
-      }
-    };
-    fetchCommentCount();
-  }, [work.id]);
 
   const handleExpand = async () => {
     if (expanded) {
@@ -183,7 +167,12 @@ function FeedPost({
             {work.title}
           </h3>
           <div className="flex items-center gap-2 shrink-0">
-            <RatingStars workId={work.id} readOnly showDetails={false} />
+            <RatingStars
+              workId={work.id}
+              readOnly
+              showDetails={false}
+              stats={stats ? { average: stats.average, count: stats.count } : null}
+            />
             <span className="shrink-0 px-2.5 py-1 bg-slate-100 dark:bg-slate-800/60 border border-slate-200/50 dark:border-slate-700/30 rounded-full text-[10px] font-sans font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               {work.category}
             </span>
@@ -288,6 +277,7 @@ export default function ActivityFeed() {
   const [loadingWorks, setLoadingWorks] = useState(true);
   const [visibleCount, setVisibleCount] = useState(POSTS_PER_LOAD);
   const [hasMore, setHasMore] = useState(true);
+  const [statsMap, setStatsMap] = useState<Record<string, { average: number; count: number; comments: number }>>({});
 
   useEffect(() => {
     if (!loading && !user) {
@@ -347,6 +337,28 @@ export default function ActivityFeed() {
       fetchWorks();
     }
   }, [user, fetchWorks]);
+
+  // One aggregated request for every visible card's rating + comment count,
+  // instead of two Supabase reads per FeedPost.
+  useEffect(() => {
+    if (works.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const ids = works.map((w) => w.id).join(',');
+        const res = await fetch(`/api/works/ratings/summary?ids=${encodeURIComponent(ids)}`);
+        if (res.ok && !cancelled) {
+          const { stats } = await res.json();
+          setStatsMap(stats || {});
+        }
+      } catch (err) {
+        console.error('Error fetching rating summary:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [works]);
 
   const handleLoadMore = () => {
     const newCount = visibleCount + POSTS_PER_LOAD;
@@ -477,7 +489,7 @@ export default function ActivityFeed() {
                     {group.items.map((work) => {
                       const idx = globalIndex++;
                       return (
-                        <FeedPost key={work.id} work={work} index={idx} />
+                        <FeedPost key={work.id} work={work} index={idx} stats={statsMap[work.id] ?? null} />
                       );
                     })}
                   </div>

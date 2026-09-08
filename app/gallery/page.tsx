@@ -17,6 +17,7 @@ export default function Gallery() {
   const [works, setWorks] = useState<Work[]>([]);
   const [loadingWorks, setLoadingWorks] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [ratingStats, setRatingStats] = useState<Record<string, { average: number; count: number }>>({});
 
   const CATEGORIES = ['Paintings', 'Digital Art', 'Sculptures'];
 
@@ -40,7 +41,22 @@ export default function Gallery() {
         return;
       }
 
-      setWorks(data || []);
+      const list = data || [];
+      setWorks(list);
+
+      // One aggregated request for all cards instead of one query per card.
+      if (list.length > 0) {
+        try {
+          const ids = list.map((w) => w.id).join(',');
+          const res = await fetch(`/api/works/ratings/summary?ids=${encodeURIComponent(ids)}`);
+          if (res.ok) {
+            const { stats } = await res.json();
+            setRatingStats(stats || {});
+          }
+        } catch (statsError) {
+          console.error('Error fetching rating summary:', statsError);
+        }
+      }
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -204,7 +220,7 @@ export default function Gallery() {
                       </h3>
                       <div className="flex justify-between items-center mt-1.5">
                         <p className="font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50">{work.category}</p>
-                        <RatingStars workId={work.id} readOnly showDetails={false} />
+                        <RatingStars workId={work.id} readOnly showDetails={false} stats={ratingStats[work.id] ?? null} />
                       </div>
                     </div>
                   </div>

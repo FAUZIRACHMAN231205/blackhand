@@ -11,6 +11,12 @@ interface RatingStarsProps {
   size?: number;
   showDetails?: boolean;
   onRate?: (rating: number) => void;
+  /**
+   * Pre-aggregated rating for list/grid views. When provided (even as null),
+   * the component uses it and skips its own Supabase read — this is how
+   * gallery/feed avoid one query per card.
+   */
+  stats?: { average: number; count: number } | null;
 }
 
 export default function RatingStars({
@@ -20,6 +26,7 @@ export default function RatingStars({
   size = 20,
   showDetails = true,
   onRate,
+  stats,
 }: RatingStarsProps) {
   const [avgRating, setAvgRating] = useState<number>(0);
   const [totalRatings, setTotalRatings] = useState<number>(0);
@@ -70,8 +77,16 @@ export default function RatingStars({
   }, [workId, userId]);
 
   useEffect(() => {
+    // When the parent supplies pre-aggregated stats (list/grid views), use them
+    // and skip the per-card fetch entirely.
+    if (stats !== undefined) {
+      setAvgRating(stats?.average ?? 0);
+      setTotalRatings(stats?.count ?? 0);
+      setLoading(false);
+      return;
+    }
     fetchRatingStats();
-  }, [fetchRatingStats]);
+  }, [stats, fetchRatingStats]);
 
   const handleRate = async (ratingValue: number) => {
     if (readOnly || !userId || submitting) return;
