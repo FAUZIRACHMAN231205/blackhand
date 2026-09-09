@@ -2,7 +2,7 @@ import 'server-only';
 import crypto from 'node:crypto';
 import { supabaseAdmin } from './supabaseAdmin';
 
-const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const OTP_RESEND_COOLDOWN_MS = 3 * 60 * 1000; // 3 minutes
 const MAX_VERIFY_ATTEMPTS = 5;
 

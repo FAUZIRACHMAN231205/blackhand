@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
           </div>
 
           <p style="color: #999; font-size: 12px; margin-bottom: 10px;">
-            This code will expire in 10 minutes.
+            This code will expire in 5 minutes.
           </p>
 
           <p style="color: #999; font-size: 12px;">
