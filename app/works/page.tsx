@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
+import AuthModal from '../component/AuthModal';
 import {
   ChevronLeft,
   Sparkles,
@@ -278,12 +279,7 @@ export default function ActivityFeed() {
   const [visibleCount, setVisibleCount] = useState(POSTS_PER_LOAD);
   const [hasMore, setHasMore] = useState(true);
   const [statsMap, setStatsMap] = useState<Record<string, { average: number; count: number; comments: number }>>({});
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/');
-    }
-  }, [user, loading, router]);
+  const [authOpen, setAuthOpen] = useState(false);
 
   const fetchWorks = useCallback(async () => {
     try {
@@ -333,10 +329,9 @@ export default function ActivityFeed() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      fetchWorks();
-    }
-  }, [user, fetchWorks]);
+    // Public feed: published works load regardless of auth state.
+    fetchWorks();
+  }, [fetchWorks]);
 
   // One aggregated request for every visible card's rating + comment count,
   // instead of two Supabase reads per FeedPost.
@@ -372,10 +367,6 @@ export default function ActivityFeed() {
     return <LoadingSpinner />;
   }
 
-  if (!user) {
-    return null;
-  }
-
   // ── Group works by date ─────────────────────────────────────────────
   const visibleWorks = works.slice(0, visibleCount);
   const groupedWorks: { label: string; items: Work[] }[] = [];
@@ -395,7 +386,8 @@ export default function ActivityFeed() {
 
   return (
     <>
-      <Navbar onOpenModal={() => {}} />
+      <Navbar onOpenModal={() => setAuthOpen(true)} />
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
         {/* Ambient Background */}
@@ -405,15 +397,15 @@ export default function ActivityFeed() {
         <div className="max-w-2xl mx-auto relative z-10 space-y-8">
           {/* Back Button */}
           <button
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
+            onClick={() => router.push(user ? '/dashboard' : '/')}
+            className="flex items-center gap-2 py-2 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
           >
             <ChevronLeft
               size={20}
               className="group-hover:-translate-x-1 transition-transform"
             />
             <span className="font-sans text-sm font-semibold">
-              Back to Dashboard
+              {user ? 'Back to Dashboard' : 'Back to Home'}
             </span>
           </button>
 

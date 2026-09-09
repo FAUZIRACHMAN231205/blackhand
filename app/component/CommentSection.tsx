@@ -7,10 +7,13 @@ import type { WorkComment } from '../types';
 
 interface CommentSectionProps {
   workId: string;
-  userId: string;
+  /** Omitted for signed-out visitors: comments stay readable, posting is gated. */
+  userId?: string;
   userEmail?: string;
   isAdmin?: boolean;
   ratingsVersion?: number;
+  /** Called when a signed-out visitor wants to comment. */
+  onRequireAuth?: () => void;
 }
 
 // ─── Relative Timestamp Helper ────────────────────────────────────────
@@ -40,6 +43,7 @@ export default function CommentSection({
   userEmail,
   isAdmin = false,
   ratingsVersion = 0,
+  onRequireAuth,
 }: CommentSectionProps) {
   const [comments, setComments] = useState<WorkComment[]>([]);
   const [newComment, setNewComment] = useState<string>('');
@@ -157,7 +161,8 @@ export default function CommentSection({
         </div>
       )}
 
-      {/* Form Input */}
+      {/* Form Input — signed-in only; visitors get a sign-in prompt */}
+      {userId ? (
       <form onSubmit={handleSubmit} className="space-y-2">
         <div className="relative bg-slate-50 dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-xl overflow-hidden focus-within:border-violet-500/50 transition-colors">
           <textarea
@@ -187,6 +192,20 @@ export default function CommentSection({
           </div>
         </div>
       </form>
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-50/70 dark:bg-slate-900/30 border border-dashed border-slate-200 dark:border-slate-800/60 rounded-xl px-4 py-4">
+          <p className="text-xs text-slate-500 dark:text-slate-400 flex-grow">
+            Masuk untuk ikut berdiskusi dan memberi rating pada karya ini.
+          </p>
+          <button
+            type="button"
+            onClick={onRequireAuth}
+            className="shrink-0 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg transition-colors"
+          >
+            Masuk
+          </button>
+        </div>
+      )}
 
       {/* Comment List */}
       {loading ? (
@@ -216,6 +235,7 @@ export default function CommentSection({
                     <img
                       src={comment.user_avatar}
                       alt={comment.user_name || 'User'}
+                      referrerPolicy="no-referrer"
                       className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-800"
                     />
                   ) : (

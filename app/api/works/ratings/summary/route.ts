@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUser } from '@/app/lib/apiAuth';
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin';
 
 // Batch aggregate for list/grid views. Returns rating average + count and the
 // comment count per work in a fixed number of queries, so gallery/feed cards
 // no longer each fire their own Supabase read (the old N+1). Only aggregates
 // are returned — never individual user_ids.
+// Public: the gallery and feed are browsable without an account, and this only
+// exposes aggregates over works that are already publicly readable.
 export async function GET(request: NextRequest) {
-  const auth = await requireUser();
-  if ('error' in auth) return auth.error;
-
   const idsParam = request.nextUrl.searchParams.get('ids');
   const ids = (idsParam ?? '')
     .split(',')

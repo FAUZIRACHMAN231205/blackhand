@@ -147,6 +147,7 @@ export default function Dashboard() {
                 <img
                   src={user.avatar_url}
                   alt="User Avatar"
+                  referrerPolicy="no-referrer"
                   className="relative w-20 h-20 md:w-28 md:h-28 rounded-full border-4 border-white dark:border-slate-900 object-cover shadow-md"
                 />
               </div>

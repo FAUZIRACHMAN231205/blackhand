@@ -198,7 +198,7 @@ export default function CreateWork() {
           {/* Back Button */}
           <button
             onClick={() => router.push('/admin/works')}
-            className="flex items-center gap-2 mb-8 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
+            className="flex items-center gap-2 py-2 mb-6 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
           >
             <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="font-sans text-sm font-medium">Back to Works</span>

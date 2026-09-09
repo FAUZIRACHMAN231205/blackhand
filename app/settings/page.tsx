@@ -171,6 +171,7 @@ export default function SettingsPage() {
                         <img
                           src={user.avatar_url}
                           alt="Profile"
+                          referrerPolicy="no-referrer"
                           className="w-24 h-24 rounded-full border-2 border-black/10 dark:border-white/10"
                         />
                         <p className="font-sans text-[11px] text-black/40 dark:text-white/40 mt-2">
