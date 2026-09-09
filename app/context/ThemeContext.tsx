@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 interface ThemeContextType {
   isDark: boolean;
   toggleTheme: () => void;
+  setTheme: (theme: 'dark' | 'light') => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -19,6 +20,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
     const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsDark(shouldBeDark);
     
     // Apply theme to document
@@ -30,6 +32,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     
     setMounted(true);
   }, []);
+
+  const setTheme = (theme: 'dark' | 'light') => {
+    const shouldBeDark = theme === 'dark';
+    setIsDark(shouldBeDark);
+    localStorage.setItem('theme', theme);
+    
+    if (shouldBeDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   const toggleTheme = () => {
     setIsDark((prev) => {
@@ -46,13 +60,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
+    <ThemeContext.Provider value={{ isDark, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

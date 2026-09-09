@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
+import { X, AlertCircle } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -12,73 +13,60 @@ interface AuthModalProps {
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const router = useRouter();
+  const { showToast } = useToast();
+  const { setTheme } = useTheme();
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Reset state ketika modal dibuka
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setStep('email');
       setEmail('');
       setOtp('');
       setLoading(false);
+      setError(null);
     }
-  }, [isOpen]);
+  }
 
   if (!isOpen) return null;
 
-  // 1. FUNGSI AUTH GOOGLE (OAUTH)
-  const handleGoogleLogin = async () => {
+  // 1. FUNGSI AUTH GOOGLE (OAUTH) — full-page redirect ke route OAuth kita sendiri
+  const handleGoogleLogin = () => {
     setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          // Mengarahkan kembali ke localhost setelah user memilih akun Google
-          redirectTo: `${window.location.origin}`,
-          // ✨ Tampilkan account picker agar user bisa pilih akun Google berbeda
-          queryParams: {
-            prompt: 'select_account',
-          },
-        },
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      console.error('Error Google Auth:', error.message);
-      alert('Gagal menghubungkan ke Google Auth: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
+    window.location.href = '/api/auth/google';
   };
 
-  // 2. FUNGSI KIRIM OTP EMAIL (MAGIC LINK)
+  // 2. FUNGSI KIRIM KODE OTP EMAIL
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
     setLoading(true);
+    setError(null);
     try {
-      // Use Supabase Magic Link (lebih reliable dari OTP)
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          shouldCreateUser: true,
-        },
+      const res = await fetch('/api/auth/otp/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
+      const data = await res.json();
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message || 'Failed to send OTP');
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send OTP');
       }
-      
+
       // Jika sukses mengirim kode, pindah ke langkah input OTP
       setStep('otp');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error('Error mengirim OTP:', error);
-      alert('Gagal mengirim kode OTP: ' + (error.message || 'Silakan cek koneksi internet dan coba lagi'));
+      setError(errMsg || 'Silakan cek koneksi internet dan coba lagi');
     } finally {
       setLoading(false);
     }
@@ -90,21 +78,27 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     if (!otp || otp.length < 6) return;
 
     setLoading(true);
+    setError(null);
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: email,
-        token: otp,
-        type: 'email',
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: otp }),
       });
+      const data = await res.json();
 
-      if (error) throw error;
+      if (!res.ok) {
+        throw new Error(data.error || 'Verification failed');
+      }
 
-      // Jika berhasil login, tutup modal dan redirect ke dashboard
+      // Jika berhasil login, atur default dark mode, tutup modal dan redirect ke dashboard
+      setTheme('dark');
       onClose();
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error('Error verifikasi OTP:', error);
-      alert('Kode OTP salah atau kedaluwarsa: ' + (error.message || 'Silakan coba lagi'));
+      setError(errMsg || 'Kode OTP salah atau kedaluwarsa. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -113,29 +107,44 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const handleBack = () => {
     setStep('email');
     setOtp('');
+    setError(null);
   };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
-      
-      <div className="relative w-full max-w-[420px] bg-zinc-950 border border-white/10 p-10 rounded-2xl shadow-2xl overflow-hidden">
-        <button onClick={onClose} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors">
+
+      <div className="relative w-full max-w-[420px] bg-zinc-950 border border-white/10 p-6 sm:p-10 rounded-2xl shadow-2xl overflow-hidden">
+        {/* Ambient accent glow - refined for dark art vibe */}
+        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-48 h-48 sm:w-56 sm:h-56 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-2 right-2 sm:top-4 sm:right-4 flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+        >
           <X size={20} />
         </button>
 
-        <div className="relative z-10 flex flex-col">
+        <div className="relative z-10 flex flex-col mt-2 sm:mt-0">
           {/* Header Section */}
-          <div className="mb-10 text-left">
-            <h2 className="font-serif text-4xl italic mb-1 text-white">
+          <div className="mb-6 sm:mb-8 text-left">
+            <h2 className="font-serif text-3xl sm:text-4xl italic mb-1 text-white">
               {step === 'email' ? 'Identity' : 'Enter code'}
             </h2>
             <p className="font-sans text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">
-              {step === 'email' 
-                ? 'Access your digital archive' 
+              {step === 'email'
+                ? 'Access your digital archive'
                 : `Sent to ${email || 'your email'}`}
             </p>
           </div>
+
+          {error && (
+            <div className="mb-6 flex items-start gap-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-3 rounded-xl text-xs font-sans leading-relaxed">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
           {step === 'email' ? (
             /* STEP 1: EMAIL INPUT & GOOGLE BUTTON */
@@ -164,14 +173,18 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               <form onSubmit={handleSendOTP} className="space-y-5">
                 <div className="space-y-1.5 text-left">
                   <label className="font-sans text-[9px] uppercase tracking-widest text-zinc-400 ml-1">Email Address</label>
-                  <input 
-                    type="email" 
+                  <input
+                    type="email"
                     required
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     disabled={loading}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full bg-white/5 border border-white/10 px-4 py-3.5 rounded-xl font-sans text-sm text-white focus:outline-none focus:border-white/30 transition-all placeholder:text-zinc-700 disabled:opacity-50"
+                    className="w-full bg-white/5 border border-white/10 px-4 py-3.5 rounded-xl font-sans text-sm text-white focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all placeholder:text-zinc-700 disabled:opacity-50"
                   />
                 </div>
                 <button 
@@ -187,15 +200,18 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             /* STEP 2: OTP INPUT VERIFICATION */
             <form onSubmit={handleVerifyOTP} className="space-y-6">
               <div className="space-y-1.5 text-left">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
                   maxLength={6}
                   disabled={loading}
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="6-digit code"
-                  className="w-full bg-white/5 border border-white/10 px-4 py-4 rounded-xl font-sans text-center text-xl tracking-[0.5em] text-white focus:outline-none focus:border-white/30 transition-all placeholder:tracking-normal placeholder:text-sm placeholder:text-zinc-700 disabled:opacity-50"
+                  className="w-full bg-white/5 border border-white/10 px-4 py-4 rounded-xl font-sans text-center text-xl tracking-[0.5em] text-white focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all placeholder:tracking-normal placeholder:text-sm placeholder:text-zinc-700 disabled:opacity-50"
                 />
               </div>
               <button 

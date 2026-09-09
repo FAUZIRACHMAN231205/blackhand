@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   /* 1. Properti standar CSS dipindahkan ke sini */
   color-scheme: light dark;
@@ -16,6 +18,7 @@
   /* 2. Blok @theme sekarang BERSIH, hanya berisi custom properties (variabel --*) */
   --font-serif: var(--font-cormorant);
   --font-sans: var(--font-poppins);
+  --font-augustus: var(--font-augustus-custom), serif;
 }
 
 body {
@@ -23,3 +26,67 @@ body {
   /* Mencegah scroll horizontal */
   overflow-x: hidden;
 }
+
+/* Kustom Animasi untuk Ambient Glow */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-15px) scale(1.05);
+  }
+}
+
+@keyframes float-reverse {
+  0%, 100% {
+    transform: translateY(0px) scale(1.05);
+  }
+  50% {
+    transform: translateY(15px) scale(0.95);
+  }
+}
+
+.animate-float-slow {
+  animation: float 12s ease-in-out infinite;
+}
+
+.animate-float-slow-reverse {
+  animation: float-reverse 15s ease-in-out infinite;
+}
+
+/* Activity Feed Animations */
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 6px 0 rgba(139, 92, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 16px 4px rgba(139, 92, 246, 0.6);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Stagger delays for feed posts */
+.feed-post-1 { animation-delay: 0ms; }
+.feed-post-2 { animation-delay: 80ms; }
+.feed-post-3 { animation-delay: 160ms; }
+.feed-post-4 { animation-delay: 240ms; }
+.feed-post-5 { animation-delay: 320ms; }
+.feed-post-6 { animation-delay: 400ms; }

@@ -6,7 +6,11 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isAdmin } from '../../../lib/adminUtils';
 import { supabase } from '../../../lib/supabaseClient';
 import Navbar from '../../../component/Navbar';
-import { ChevronLeft, Upload, X, CheckCircle, AlertCircle } from 'lucide-react';
+// supabase (anon-key client) is only used here for the signed-URL Storage upload step —
+// the upload token itself authorizes the write, no session needed.
+import { LoadingSpinner } from '../../../component/LoadingStates';
+import { useToast } from '../../../context/ToastContext';
+import { ChevronLeft, Upload, X } from 'lucide-react';
 
 const CATEGORIES = ['Paintings', 'Digital Art', 'Sculptures'];
 const MAX_IMAGES = 6;
@@ -18,9 +22,15 @@ interface ImageUpload {
   isFeatured: boolean;
 }
 
+const inputClass =
+  'w-full px-4 py-3.5 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-sm';
+const labelClass = 'block font-sans text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-white/50 mb-2.5';
+const cardClass = 'bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-8 space-y-6 transition-colors shadow-sm backdrop-blur-sm';
+
 export default function CreateWork() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Paintings');
@@ -34,27 +44,20 @@ export default function CreateWork() {
   );
   const [isPublished, setIsPublished] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     // Redirect jika belum login atau bukan admin
     if (!loading) {
       if (!user) {
         router.push('/');
-      } else if (!isAdmin(user.email)) {
+      } else if (!isAdmin(user)) {
         router.push('/dashboard');
       }
     }
   }, [user, loading, router]);
 
-  if (loading || !user || !isAdmin(user.email)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-black text-xl">Loading...</div>
-      </div>
-    );
+  if (loading || !user || !isAdmin(user)) {
+    return <LoadingSpinner />;
   }
 
   const handleImageSelect = (index: number, file: File) => {
@@ -96,99 +99,92 @@ export default function CreateWork() {
     try {
       // Validasi
       if (!title.trim()) {
-        alert('Title is required');
+        showToast({ type: 'error', message: 'Title is required' });
         setIsSubmitting(false);
         return;
       }
 
-      const uploadedImages = images.filter(img => img.file);
+      const uploadedImages = images.filter((img) => img.file);
       if (uploadedImages.length === 0) {
-        alert('Please upload at least 1 image');
+        showToast({ type: 'error', message: 'Please upload at least 1 image' });
         setIsSubmitting(false);
         return;
       }
 
-      // Upload images ke Supabase Storage
-      const uploadedImageUrls: { url: string; order: number; isFeatured: boolean }[] = [];
+      // 1. Buat work di database (tanpa gambar dulu)
+      const createRes = await fetch('/api/admin/works', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          category,
+          is_published: isPublished,
+        }),
+      });
+      const createData = await createRes.json();
 
+      if (!createRes.ok) {
+        console.error('Work creation error:', createData.error);
+        showToast({ type: 'error', message: 'Failed to create work' });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const workId = createData.work.id as string;
+
+      // 2. Upload tiap gambar via signed URL, lalu persist row-nya
       for (const [index, imageData] of images.entries()) {
         if (!imageData.file) continue;
 
-        const fileName = `${Date.now()}-${index}-${imageData.file.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('work-images')
-          .upload(`works/${Date.now()}/${fileName}`, imageData.file);
+        const urlRes = await fetch(`/api/admin/works/${workId}/images/upload-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: imageData.file.name }),
+        });
+        const urlData = await urlRes.json();
 
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          setErrorMessage(`Failed to upload image ${index + 1}`);
-          setShowErrorModal(true);
+        if (!urlRes.ok) {
+          console.error('Upload URL error:', urlData.error);
+          showToast({ type: 'error', message: `Failed to upload image ${index + 1}` });
           setIsSubmitting(false);
           return;
         }
 
-        const { data: urlData } = supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('work-images')
-          .getPublicUrl(uploadData.path);
+          .uploadToSignedUrl(urlData.path, urlData.token, imageData.file);
 
-        uploadedImageUrls.push({
-          url: urlData.publicUrl,
-          order: imageData.order,
-          isFeatured: imageData.isFeatured,
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          showToast({ type: 'error', message: `Failed to upload image ${index + 1}` });
+          setIsSubmitting(false);
+          return;
+        }
+
+        const persistRes = await fetch(`/api/admin/works/${workId}/images`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image_url: urlData.publicUrl,
+            display_order: imageData.order,
+            is_featured: imageData.isFeatured,
+          }),
         });
+
+        if (!persistRes.ok) {
+          console.error('Images insertion error:', await persistRes.text());
+          showToast({ type: 'error', message: 'Failed to save images' });
+          setIsSubmitting(false);
+          return;
+        }
       }
 
-      // Buat work di database
-      const featuredImage = uploadedImageUrls.find(img => img.isFeatured);
-      const { data: workData, error: workError } = await supabase
-        .from('works')
-        .insert({
-          title: title.trim(),
-          description: description.trim(),
-          category,
-          created_by: user.id,
-          is_published: isPublished,
-          featured_image_url: featuredImage?.url || uploadedImageUrls[0]?.url,
-        })
-        .select('id')
-        .single();
-
-      if (workError) {
-        console.error('Work creation error:', workError);
-        setErrorMessage('Failed to create work');
-        setShowErrorModal(true);
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Insert work_images
-      const imagesToInsert = uploadedImageUrls.map(img => ({
-        work_id: workData.id,
-        image_url: img.url,
-        display_order: img.order,
-        is_featured: img.isFeatured,
-      }));
-
-      const { error: imagesError } = await supabase
-        .from('work_images')
-        .insert(imagesToInsert);
-
-      if (imagesError) {
-        console.error('Images insertion error:', imagesError);
-        setErrorMessage('Failed to save images');
-        setShowErrorModal(true);
-        setIsSubmitting(false);
-        return;
-      }
-
-      setShowSuccessModal(true);
-      setTimeout(() => {
-        router.push('/admin/works');
-      }, 2000);
+      showToast({ type: 'success', message: 'Work created successfully!' });
+      router.push('/admin/works');
     } catch (error) {
       console.error('Error:', error);
-      setErrorMessage('An error occurred');
-      setShowErrorModal(true);
+      showToast({ type: 'error', message: 'An error occurred' });
       setIsSubmitting(false);
     }
   };
@@ -196,13 +192,13 @@ export default function CreateWork() {
   return (
     <>
       <Navbar onOpenModal={() => {}} />
-      
-      <main className="min-h-[100dvh] bg-white text-black pt-24 p-6 md:p-20">
+
+      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors duration-300">
         <div className="max-w-4xl mx-auto">
           {/* Back Button */}
           <button
             onClick={() => router.push('/admin/works')}
-            className="flex items-center gap-2 mb-8 text-black/60 hover:text-black transition-colors group"
+            className="flex items-center gap-2 mb-8 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
           >
             <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="font-sans text-sm font-medium">Back to Works</span>
@@ -210,10 +206,10 @@ export default function CreateWork() {
 
           {/* Header */}
           <div className="mb-12">
-            <h1 className="text-5xl md:text-6xl font-cormorant font-medium mb-2">
+            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-2">
               Upload New Work
             </h1>
-            <p className="text-black/60">
+            <p className="font-sans text-sm text-black/60 dark:text-white/60">
               Create an album with up to {MAX_IMAGES} images
             </p>
           </div>
@@ -221,38 +217,38 @@ export default function CreateWork() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Basic Info */}
-            <div className="bg-white border border-black/10 rounded-lg p-8 space-y-6">
-              <h2 className="text-lg font-cormorant font-medium">Work Information</h2>
+            <div className={cardClass}>
+              <h2 className="font-serif text-lg italic">Work Information</h2>
 
               <div>
-                <label className="block text-sm font-bold text-black/80 mb-3">Title *</label>
+                <label className={labelClass}>Title *</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Enter work title"
-                  className="w-full px-4 py-3 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-black/80 mb-3">Description</label>
+                <label className={labelClass}>Description</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Enter work description (optional)"
                   rows={4}
-                  className="w-full px-4 py-3 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                  className={`${inputClass} resize-none`}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-black/80 mb-3">Category *</label>
+                  <label className={labelClass}>Category *</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-3 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                    className={inputClass}
                   >
                     {CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>
@@ -263,11 +259,11 @@ export default function CreateWork() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-black/80 mb-3">Status</label>
+                  <label className={labelClass}>Status</label>
                   <select
                     value={isPublished ? 'published' : 'unpublished'}
                     onChange={(e) => setIsPublished(e.target.value === 'published')}
-                    className="w-full px-4 py-3 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                    className={inputClass}
                   >
                     <option value="published">Published</option>
                     <option value="unpublished">Unpublished</option>
@@ -277,14 +273,14 @@ export default function CreateWork() {
             </div>
 
             {/* Images Upload */}
-            <div className="bg-white border border-black/10 rounded-lg p-8 space-y-6">
-              <h2 className="text-lg font-cormorant font-medium">
+            <div className={cardClass}>
+              <h2 className="font-serif text-lg italic">
                 Images (Up to {MAX_IMAGES})
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-3 sm:gap-6">
                 {images.map((image, index) => (
-                  <div key={index} className="border-2 border-dashed border-black/20 rounded-lg p-4">
+                  <div key={index} className="border-2 border-dashed border-black/10 dark:border-white/15 rounded-xl p-4 hover:border-violet-500/30 transition-colors">
                     <div className="relative">
                       {image.preview ? (
                         <div className="space-y-3">
@@ -293,25 +289,25 @@ export default function CreateWork() {
                             alt={`Preview ${index + 1}`}
                             className="w-full h-48 object-cover rounded-lg"
                           />
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <button
                               type="button"
                               onClick={() => handleImageRemove(index)}
-                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-lg hover:bg-rose-500/20 transition-colors font-sans text-xs font-bold"
                             >
-                              <X size={16} />
+                              <X size={14} />
                               Remove
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSetFeatured(index)}
-                              className={`flex-1 px-3 py-2 rounded-lg transition-colors ${
+                              className={`flex-1 px-3 py-2 rounded-lg transition-colors font-sans text-xs font-bold ${
                                 image.isFeatured
-                                  ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
-                                  : 'bg-black/5 text-black/60 hover:bg-black/10'
+                                  ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300/60 dark:border-amber-800/50'
+                                  : 'bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10'
                               }`}
                             >
-                              {image.isFeatured ? '⭐ Featured' : 'Set Featured'}
+                              {image.isFeatured ? '★ Featured' : 'Set Featured'}
                             </button>
                           </div>
                         </div>
@@ -326,10 +322,10 @@ export default function CreateWork() {
                             }}
                             className="hidden"
                           />
-                          <div className="flex flex-col items-center justify-center py-8">
-                            <Upload size={32} className="text-black/40 mb-2" />
-                            <p className="text-sm font-medium text-black/60">Image {index + 1}</p>
-                            <p className="text-xs text-black/40">Click to upload</p>
+                          <div className="flex flex-col items-center justify-center py-6">
+                            <Upload size={26} strokeWidth={1.5} className="text-black/30 dark:text-white/30 mb-2" />
+                            <p className="font-sans text-xs font-bold text-black/60 dark:text-white/60">Image {index + 1}</p>
+                            <p className="font-sans text-[10px] text-black/40 dark:text-white/40 mt-0.5">Click to upload</p>
                           </div>
                         </label>
                       )}
@@ -344,14 +340,14 @@ export default function CreateWork() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 px-6 py-3 bg-black text-white rounded-lg hover:bg-black/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                className="flex-1 px-6 py-3.5 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
               >
                 {isSubmitting ? 'Uploading...' : 'Create Work'}
               </button>
               <button
                 type="button"
                 onClick={() => router.push('/admin/works')}
-                className="flex-1 px-6 py-3 border border-black/20 text-black rounded-lg hover:bg-black/5 transition-colors font-medium"
+                className="flex-1 px-6 py-3.5 border border-black/10 dark:border-white/10 text-black dark:text-white rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
               >
                 Cancel
               </button>
@@ -359,57 +355,6 @@ export default function CreateWork() {
           </form>
         </div>
       </main>
-
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300">
-            <div className="flex justify-center mb-4">
-              <CheckCircle size={64} className="text-green-500" />
-            </div>
-            <h2 className="text-2xl font-cormorant font-medium text-black mb-2">
-              Work Created Successfully!
-            </h2>
-            <p className="text-black/60 mb-6">
-              Your work has been uploaded and saved to the gallery.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  router.push('/admin/works');
-                }}
-                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium"
-              >
-                View Works
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Error Modal */}
-      {showErrorModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-8 max-w-sm w-full text-center shadow-xl animate-in fade-in zoom-in duration-300">
-            <div className="flex justify-center mb-4">
-              <AlertCircle size={64} className="text-red-500" />
-            </div>
-            <h2 className="text-2xl font-cormorant font-medium text-black mb-2">
-              Upload Failed
-            </h2>
-            <p className="text-black/60 mb-6">
-              {errorMessage}
-            </p>
-            <button
-              onClick={() => setShowErrorModal(false)}
-              className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      )}
     </>
   );
 }
