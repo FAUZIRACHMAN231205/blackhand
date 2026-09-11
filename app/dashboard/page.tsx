@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../context/ThemeContext';
 import Navbar from '../component/Navbar';
 import StatsCard from '../component/StatsCard';
 import SupportModal from '../component/SupportModal';
@@ -31,7 +30,6 @@ export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
   
-  const { setTheme } = useTheme();
   
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -41,14 +39,8 @@ export default function Dashboard() {
     // Redirect ke home jika belum login
     if (!loading && !user) {
       router.push('/');
-    } else if (user) {
-      const hasAppliedLoginTheme = sessionStorage.getItem('bh_login_theme_applied');
-      if (!hasAppliedLoginTheme) {
-        setTheme('dark');
-        sessionStorage.setItem('bh_login_theme_applied', 'true');
-      }
     }
-  }, [user, loading, router, setTheme]);
+  }, [user, loading, router]);
 
   if (loading) {
     return <DashboardSkeleton />;

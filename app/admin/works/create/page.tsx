@@ -10,10 +10,19 @@ import Navbar from '../../../component/Navbar';
 // the upload token itself authorizes the write, no session needed.
 import { LoadingSpinner } from '../../../component/LoadingStates';
 import { useToast } from '../../../context/ToastContext';
-import { ChevronLeft, Upload, X } from 'lucide-react';
+import { ChevronLeft, Upload, X, Star } from 'lucide-react';
+import {
+  WORK_CATEGORIES,
+  MAX_IMAGES_PER_WORK,
+  MAX_IMAGE_BYTES,
+  ALLOWED_IMAGE_TYPES,
+  MIN_PRICE_IDR,
+  formatIdr,
+} from '../../../lib/categories';
 
-const CATEGORIES = ['Paintings', 'Digital Art', 'Sculptures'];
-const MAX_IMAGES = 6;
+// Shared with the API so the form and the server never disagree.
+const CATEGORIES = WORK_CATEGORIES;
+const MAX_IMAGES = MAX_IMAGES_PER_WORK;
 
 interface ImageUpload {
   file: File | null;
@@ -23,7 +32,7 @@ interface ImageUpload {
 }
 
 const inputClass =
-  'w-full px-4 py-3.5 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-sm';
+  'w-full px-4 py-3.5 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/50 dark:placeholder-white/50 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-base';
 const labelClass = 'block font-sans text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-white/50 mb-2.5';
 const cardClass = 'bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-8 space-y-6 transition-colors shadow-sm backdrop-blur-sm';
 
@@ -43,6 +52,8 @@ export default function CreateWork() {
     }))
   );
   const [isPublished, setIsPublished] = useState(true);
+  const [isForSale, setIsForSale] = useState(false);
+  const [priceIdr, setPriceIdr] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -61,6 +72,19 @@ export default function CreateWork() {
   }
 
   const handleImageSelect = (index: number, file: File) => {
+    // Reject early, before reading or uploading, with the same limits the API enforces.
+    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+      showToast({ type: 'error', message: 'Only JPG, PNG, WebP, AVIF or GIF images are allowed' });
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      showToast({
+        type: 'error',
+        message: `Image is too large (max ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB)`,
+      });
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const newImages = [...images];
@@ -120,13 +144,15 @@ export default function CreateWork() {
           description: description.trim(),
           category,
           is_published: isPublished,
+          is_for_sale: isForSale,
+          price_idr: priceIdr === '' ? null : Number(priceIdr),
         }),
       });
       const createData = await createRes.json();
 
       if (!createRes.ok) {
         console.error('Work creation error:', createData.error);
-        showToast({ type: 'error', message: 'Failed to create work' });
+        showToast({ type: 'error', message: createData.error || 'Failed to create work' });
         setIsSubmitting(false);
         return;
       }
@@ -140,7 +166,11 @@ export default function CreateWork() {
         const urlRes = await fetch(`/api/admin/works/${workId}/images/upload-url`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileName: imageData.file.name }),
+          body: JSON.stringify({
+            fileName: imageData.file.name,
+            contentType: imageData.file.type,
+            size: imageData.file.size,
+          }),
         });
         const urlData = await urlRes.json();
 
@@ -152,7 +182,7 @@ export default function CreateWork() {
         }
 
         const { error: uploadError } = await supabase.storage
-          .from('work-images')
+          .from('work-originals')
           .uploadToSignedUrl(urlData.path, urlData.token, imageData.file);
 
         if (uploadError) {
@@ -166,7 +196,7 @@ export default function CreateWork() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            image_url: urlData.publicUrl,
+            original_path: urlData.originalPath,
             display_order: imageData.order,
             is_featured: imageData.isFeatured,
           }),
@@ -270,6 +300,39 @@ export default function CreateWork() {
                   </select>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Availability</label>
+                  <select
+                    value={isForSale ? 'sale' : 'not-for-sale'}
+                    onChange={(e) => setIsForSale(e.target.value === 'sale')}
+                    className={inputClass}
+                  >
+                    <option value="not-for-sale">Not for sale</option>
+                    <option value="sale">For sale</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Price (IDR)</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1000}
+                    value={priceIdr}
+                    onChange={(e) => setPriceIdr(e.target.value)}
+                    placeholder="50000"
+                    className={inputClass}
+                  />
+                  <p className="mt-1.5 font-sans text-[11px] text-black/60 dark:text-white/60">
+                    {priceIdr !== '' && Number(priceIdr) > 0
+                      ? formatIdr(Number(priceIdr))
+                      : `Minimum ${formatIdr(MIN_PRICE_IDR)} when for sale`}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Images Upload */}
@@ -307,7 +370,7 @@ export default function CreateWork() {
                                   : 'bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10'
                               }`}
                             >
-                              {image.isFeatured ? '★ Featured' : 'Set Featured'}
+                              {image.isFeatured ? (<><Star size={12} className="fill-current" />Featured</>) : 'Set Featured'}
                             </button>
                           </div>
                         </div>
@@ -325,7 +388,7 @@ export default function CreateWork() {
                           <div className="flex flex-col items-center justify-center py-6">
                             <Upload size={26} strokeWidth={1.5} className="text-black/30 dark:text-white/30 mb-2" />
                             <p className="font-sans text-xs font-bold text-black/60 dark:text-white/60">Image {index + 1}</p>
-                            <p className="font-sans text-[10px] text-black/40 dark:text-white/40 mt-0.5">Click to upload</p>
+                            <p className="font-sans text-[10px] text-black/60 dark:text-white/60 mt-0.5">Click to upload</p>
                           </div>
                         </label>
                       )}

@@ -8,7 +8,8 @@ import Navbar from '../../../../component/Navbar';
 import { LoadingSpinner } from '../../../../component/LoadingStates';
 import ConfirmDialog from '../../../../component/ConfirmDialog';
 import { useToast } from '../../../../context/ToastContext';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Star } from 'lucide-react';
+import { WORK_CATEGORIES, MIN_PRICE_IDR, formatIdr } from '../../../../lib/categories';
 
 interface Work {
   id: string;
@@ -16,6 +17,8 @@ interface Work {
   description: string;
   category: string;
   is_published: boolean;
+  price_idr: number | null;
+  is_for_sale: boolean;
 }
 
 interface WorkImage {
@@ -25,10 +28,10 @@ interface WorkImage {
   is_featured: boolean;
 }
 
-const CATEGORIES = ['Paintings', 'Digital Art', 'Sculptures'];
+const CATEGORIES = WORK_CATEGORIES;
 
 const inputClass =
-  'w-full px-4 py-3.5 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-sm';
+  'w-full px-4 py-3.5 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/50 dark:placeholder-white/50 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-base';
 const labelClass = 'block font-sans text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-white/50 mb-2.5';
 const cardClass = 'bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-8 space-y-6 transition-colors shadow-sm backdrop-blur-sm';
 
@@ -45,6 +48,8 @@ export default function EditWork() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Paintings');
   const [isPublished, setIsPublished] = useState(true);
+  const [isForSale, setIsForSale] = useState(false);
+  const [priceIdr, setPriceIdr] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingDeleteImage, setPendingDeleteImage] = useState<WorkImage | null>(null);
@@ -78,6 +83,8 @@ export default function EditWork() {
       setDescription(workData.description || '');
       setCategory(workData.category);
       setIsPublished(workData.is_published);
+      setIsForSale(Boolean(workData.is_for_sale));
+      setPriceIdr(workData.price_idr == null ? '' : String(workData.price_idr));
       setWorkImages(imagesData || []);
     } catch (error) {
       console.error('Error:', error);
@@ -153,12 +160,15 @@ export default function EditWork() {
           description: description.trim(),
           category,
           is_published: isPublished,
+          is_for_sale: isForSale,
+          price_idr: priceIdr === '' ? null : Number(priceIdr),
         }),
       });
 
       if (!res.ok) {
-        console.error('Update error:', await res.text());
-        showToast({ type: 'error', message: 'Failed to update work' });
+        const detail = await res.json().catch(() => null);
+        console.error('Update error:', detail);
+        showToast({ type: 'error', message: detail?.error || 'Failed to update work' });
         setIsSubmitting(false);
         return;
       }
@@ -256,6 +266,39 @@ export default function EditWork() {
                   </select>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Availability</label>
+                  <select
+                    value={isForSale ? 'sale' : 'not-for-sale'}
+                    onChange={(e) => setIsForSale(e.target.value === 'sale')}
+                    className={inputClass}
+                  >
+                    <option value="not-for-sale">Not for sale</option>
+                    <option value="sale">For sale</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Price (IDR)</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1000}
+                    value={priceIdr}
+                    onChange={(e) => setPriceIdr(e.target.value)}
+                    placeholder="50000"
+                    className={inputClass}
+                  />
+                  <p className="mt-1.5 font-sans text-[11px] text-black/60 dark:text-white/60">
+                    {priceIdr !== '' && Number(priceIdr) > 0
+                      ? formatIdr(Number(priceIdr))
+                      : `Minimum ${formatIdr(MIN_PRICE_IDR)} when for sale`}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Images */}
@@ -282,7 +325,7 @@ export default function EditWork() {
                               : 'bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10'
                           }`}
                         >
-                          {image.is_featured ? '★ Featured' : 'Set Featured'}
+                          {image.is_featured ? (<><Star size={12} className="fill-current" />Featured</>) : 'Set Featured'}
                         </button>
                         <button
                           type="button"

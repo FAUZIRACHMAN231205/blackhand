@@ -121,8 +121,22 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
           {/* Desktop user controls */}
           {user ? (
             <div className="hidden md:flex items-center space-x-3">
-              <span className="font-sans text-xs text-black dark:text-white hidden sm:block truncate max-w-[150px]">
-                {user.email?.substring(0, 5).toUpperCase()}
+              <span className="hidden sm:flex items-center gap-2 max-w-[190px]">
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="w-7 h-7 rounded-full object-cover border border-black/10 dark:border-white/15"
+                  />
+                ) : (
+                  <span className="w-7 h-7 shrink-0 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black flex items-center justify-center font-serif text-xs">
+                    {(user.full_name || user.email || 'B').charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="font-sans text-xs text-black dark:text-white truncate">
+                  {user.full_name || user.email}
+                </span>
               </span>
               {isAdmin(user) && (
                 <Link 

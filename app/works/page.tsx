@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
 import AuthModal from '../component/AuthModal';
 import {
+  Star,
   ChevronLeft,
   Sparkles,
   Clock,
@@ -252,7 +253,7 @@ function FeedPost({
                 />
                 {img.is_featured && (
                   <div className="absolute top-2 left-2 px-2 py-0.5 bg-amber-400 text-black text-[9px] font-bold rounded-full shadow font-sans">
-                    ⭐ Cover
+                    <Star size={10} className="inline -mt-0.5 mr-1 fill-current" />Cover
                   </div>
                 )}
               </div>

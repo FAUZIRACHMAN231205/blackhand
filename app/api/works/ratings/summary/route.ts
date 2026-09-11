@@ -9,10 +9,13 @@ import { supabaseAdmin } from '@/app/lib/supabaseAdmin';
 // exposes aggregates over works that are already publicly readable.
 export async function GET(request: NextRequest) {
   const idsParam = request.nextUrl.searchParams.get('ids');
+  // Drop anything that is not a UUID: this endpoint is public, and passing a
+  // malformed id straight to Postgres would turn junk input into a 500.
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const ids = (idsParam ?? '')
     .split(',')
     .map((s) => s.trim())
-    .filter(Boolean)
+    .filter((s) => UUID.test(s))
     .slice(0, 200);
 
   if (ids.length === 0) {

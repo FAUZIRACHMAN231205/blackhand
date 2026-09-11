@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { MessageSquare, Send, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { MessageSquare, Send, Trash2, Loader2, AlertCircle, Star } from 'lucide-react';
 import type { WorkComment } from '../types';
+import ConfirmDialog from './ConfirmDialog';
 
 interface CommentSectionProps {
   workId: string;
@@ -50,6 +51,7 @@ export default function CommentSection({
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<WorkComment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [commenterRatings, setCommenterRatings] = useState<Record<string, number>>({});
 
@@ -123,8 +125,9 @@ export default function CommentSection({
     }
   };
 
-  const handleDelete = async (commentId: string) => {
-    if (deletingId) return;
+  const handleDelete = async () => {
+    if (!pendingDelete || deletingId) return;
+    const commentId = pendingDelete.id;
 
     setDeletingId(commentId);
     setError(null);
@@ -140,6 +143,7 @@ export default function CommentSection({
       setError('Gagal menghapus komentar.');
     } finally {
       setDeletingId(null);
+      setPendingDelete(null);
     }
   };
 
@@ -171,7 +175,7 @@ export default function CommentSection({
             placeholder="Tulis pendapat atau komentar Anda tentang karya ini..."
             rows={3}
             disabled={submitting}
-            className="w-full bg-transparent px-4 py-3 text-sm resize-none focus:outline-none placeholder-slate-400 dark:placeholder-slate-500 text-slate-800 dark:text-slate-200"
+            className="w-full bg-transparent px-4 py-3 text-base resize-none focus:outline-none placeholder-slate-400 dark:placeholder-slate-500 text-slate-800 dark:text-slate-200"
           />
           <div className="flex justify-between items-center bg-slate-100/50 dark:bg-slate-900/50 border-t border-black/5 dark:border-white/5 px-4 py-2 text-[10px]">
             <span className={newComment.length >= 480 ? 'text-rose-500 font-bold' : 'text-slate-400'}>
@@ -256,7 +260,7 @@ export default function CommentSection({
                         <div className="flex items-center gap-0.5 text-amber-500 dark:text-amber-400 select-none" title={`Rating: ${rating}/5`}>
                           {Array.from({ length: 5 }).map((_, i) => (
                             <span key={i} className="text-[10px] leading-none">
-                              {i < rating ? '★' : '☆'}
+                              <Star size={10} className={i < rating ? 'fill-current' : 'opacity-30'} />
                             </span>
                           ))}
                         </div>
@@ -272,17 +276,20 @@ export default function CommentSection({
                 </div>
 
                 {/* Delete Button */}
+                {/* Always visible on touch: phones have no hover, so a
+                    hover-only control would simply not exist for them. */}
                 {canDelete && (
                   <button
-                    onClick={() => handleDelete(comment.id)}
+                    onClick={() => setPendingDelete(comment)}
                     disabled={deletingId === comment.id}
                     title="Hapus komentar"
-                    className="shrink-0 text-slate-400 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400 transition-colors self-start opacity-0 group-hover:opacity-100 focus:opacity-100 p-1"
+                    aria-label="Hapus komentar"
+                    className="shrink-0 self-start p-2.5 -m-1.5 text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 transition-colors active:scale-95 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
                   >
                     {deletingId === comment.id ? (
-                      <Loader2 size={13} className="animate-spin" />
+                      <Loader2 size={16} className="animate-spin" />
                     ) : (
-                      <Trash2 size={13} />
+                      <Trash2 size={16} />
                     )}
                   </button>
                 )}
@@ -291,6 +298,17 @@ export default function CommentSection({
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={pendingDelete !== null}
+        title="Hapus komentar?"
+        message="Komentar ini akan dihapus permanen."
+        confirmLabel="Hapus"
+        cancelLabel="Batal"
+        loading={deletingId !== null}
+        onConfirm={handleDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

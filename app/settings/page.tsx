@@ -12,7 +12,7 @@ import Link from 'next/link';
 const cardClass = 'bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-6 shadow-sm backdrop-blur-sm transition-colors';
 const labelClass = 'block font-sans text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-white/50 mb-2.5';
 const inputClass =
-  'w-full px-4 py-3 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-sm';
+  'w-full px-4 py-3 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/50 dark:placeholder-white/50 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-base';
 const primaryButtonClass =
   'mt-6 flex items-center gap-2 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-sans text-[11px] font-black uppercase tracking-[0.2em]';
 
@@ -112,7 +112,7 @@ export default function SettingsPage() {
               className={`pb-3 font-sans text-[11px] font-black uppercase tracking-[0.15em] border-b-2 transition-colors ${
                 activeTab === 'profile'
                   ? 'text-black dark:text-white border-black dark:border-white'
-                  : 'text-black/40 dark:text-white/40 border-transparent hover:text-black/70 dark:hover:text-white/70'
+                  : 'text-black/60 dark:text-white/60 border-transparent hover:text-black/70 dark:hover:text-white/70'
               }`}
             >
               <span className="flex items-center gap-2">
@@ -124,7 +124,7 @@ export default function SettingsPage() {
               className={`pb-3 font-sans text-[11px] font-black uppercase tracking-[0.15em] border-b-2 transition-colors ${
                 activeTab === 'security'
                   ? 'text-black dark:text-white border-black dark:border-white'
-                  : 'text-black/40 dark:text-white/40 border-transparent hover:text-black/70 dark:hover:text-white/70'
+                  : 'text-black/60 dark:text-white/60 border-transparent hover:text-black/70 dark:hover:text-white/70'
               }`}
             >
               <span className="flex items-center gap-2">
@@ -143,7 +143,7 @@ export default function SettingsPage() {
                   <h2 className="font-serif text-lg italic">Email Address</h2>
                 </div>
                 <p className="font-sans text-sm text-black/70 dark:text-white/70">{user.email}</p>
-                <p className="font-sans text-xs text-black/40 dark:text-white/40 mt-2">
+                <p className="font-sans text-xs text-black/60 dark:text-white/60 mt-2">
                   Your email is verified and cannot be changed directly. Contact support to change your email.
                 </p>
               </div>
@@ -174,7 +174,7 @@ export default function SettingsPage() {
                           referrerPolicy="no-referrer"
                           className="w-24 h-24 rounded-full border-2 border-black/10 dark:border-white/10"
                         />
-                        <p className="font-sans text-[11px] text-black/40 dark:text-white/40 mt-2">
+                        <p className="font-sans text-[11px] text-black/60 dark:text-white/60 mt-2">
                           Profile picture from {user.provider === 'google' ? 'Google' : 'your account'}
                         </p>
                       </div>
@@ -206,7 +206,7 @@ export default function SettingsPage() {
                       {user.provider === 'google' ? 'Google OAuth' : 'Email OTP'}
                     </span>
                   </p>
-                  <p className="text-xs text-black/40 dark:text-white/40">
+                  <p className="text-xs text-black/60 dark:text-white/60">
                     This account signs in with a one-time code or Google — there&apos;s no password to manage.
                   </p>
                 </div>
@@ -217,7 +217,7 @@ export default function SettingsPage() {
                 <h2 className="font-serif text-lg italic mb-4">Session Information</h2>
                 <div className="space-y-3 font-sans text-sm">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-black/40 dark:text-white/40 mb-1">Last Sign In</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-black/60 dark:text-white/60 mb-1">Last Sign In</p>
                     <p className="text-black/80 dark:text-white/80">
                       {user.last_sign_in_at
                         ? new Date(user.last_sign_in_at).toLocaleString('id-ID')
@@ -225,7 +225,7 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-black/40 dark:text-white/40 mb-1">Account Created</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-black/60 dark:text-white/60 mb-1">Account Created</p>
                     <p className="text-black/80 dark:text-white/80">
                       {user.created_at
                         ? new Date(user.created_at).toLocaleString('id-ID')

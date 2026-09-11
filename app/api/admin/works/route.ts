@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/lib/apiAuth';
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin';
+import { WORK_CATEGORIES, isValidCategory, validatePricing } from '@/app/lib/categories';
 
 export async function GET() {
   const auth = await requireAdmin();
@@ -8,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from('works')
-    .select('id, title, category, is_published, is_featured, created_at')
+    .select('id, title, category, is_published, is_featured, created_at, price_idr, is_for_sale')
     .eq('created_by', auth.user.id)
     .order('created_at', { ascending: false });
 
@@ -26,13 +27,21 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { title, description, category, is_published, featured_image_url } = body;
+    const { title, description, category, is_published, featured_image_url, price_idr, is_for_sale } = body;
 
     if (!title || typeof title !== 'string' || !title.trim()) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
-    if (!category || typeof category !== 'string') {
-      return NextResponse.json({ error: 'Category is required' }, { status: 400 });
+    if (!isValidCategory(category)) {
+      return NextResponse.json(
+        { error: `Category must be one of: ${WORK_CATEGORIES.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    const priceError = validatePricing(price_idr, is_for_sale);
+    if (priceError) {
+      return NextResponse.json({ error: priceError }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin
@@ -44,6 +53,8 @@ export async function POST(request: NextRequest) {
         created_by: auth.user.id,
         is_published: is_published ?? true,
         featured_image_url: featured_image_url ?? null,
+        price_idr: price_idr ?? null,
+        is_for_sale: Boolean(is_for_sale),
       })
       .select('id')
       .single();

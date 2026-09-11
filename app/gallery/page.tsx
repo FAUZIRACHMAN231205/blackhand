@@ -6,11 +6,12 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
 import AuthModal from '../component/AuthModal';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Star, ImageOff } from 'lucide-react';
 import Link from 'next/link';
 import RatingStars from '../component/RatingStars';
 import { LoadingSpinner, SkeletonGrid } from '../component/LoadingStates';
 import type { Work } from '../types';
+import { WORK_CATEGORIES } from '../lib/categories';
 
 export default function Gallery() {
   const { user, loading } = useAuth();
@@ -21,7 +22,7 @@ export default function Gallery() {
   const [ratingStats, setRatingStats] = useState<Record<string, { average: number; count: number }>>({});
   const [authOpen, setAuthOpen] = useState(false);
 
-  const CATEGORIES = ['Paintings', 'Digital Art', 'Sculptures'];
+  const CATEGORIES = WORK_CATEGORIES;
 
   const fetchWorks = async () => {
     try {
@@ -120,7 +121,7 @@ export default function Gallery() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-8">
                         <div className="text-white">
                           <span className="inline-block px-3 py-1 bg-amber-400 text-black font-sans text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
-                            ★ Featured
+                            <Star size={11} className="inline -mt-0.5 mr-1 fill-current" />Featured
                           </span>
                           <h3 className="font-serif text-2xl italic">{work.title}</h3>
                           <p className="font-sans text-sm opacity-80 mt-1">{work.category}</p>
@@ -135,7 +136,7 @@ export default function Gallery() {
 
           {/* Categories Filter */}
           <div className="mb-10">
-            <h3 className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 dark:text-white/40 mb-4 px-1">
+            <h3 className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/60 dark:text-white/60 mb-4 px-1">
               Filter by Category
             </h3>
             <div className="flex flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible hide-scrollbar pb-2 md:pb-0 gap-x-6 md:gap-x-8 px-1">
@@ -144,7 +145,7 @@ export default function Gallery() {
                 className={`relative py-2 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
                   selectedCategory === null
                     ? 'text-black dark:text-white'
-                    : 'text-black/40 dark:text-white/40 hover:text-black/70 dark:hover:text-white/70'
+                    : 'text-black/60 dark:text-white/60 hover:text-black/70 dark:hover:text-white/70'
                 }`}
               >
                 All
@@ -159,7 +160,7 @@ export default function Gallery() {
                   className={`relative py-2 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
                     selectedCategory === cat
                       ? 'text-black dark:text-white'
-                      : 'text-black/40 dark:text-white/40 hover:text-black/70 dark:hover:text-white/70'
+                      : 'text-black/60 dark:text-white/60 hover:text-black/70 dark:hover:text-white/70'
                   }`}
                 >
                   {cat}
@@ -177,7 +178,7 @@ export default function Gallery() {
           ) : filteredWorks.length === 0 ? (
             <div className="bg-black/[0.02] dark:bg-slate-900/40 border border-dashed border-black/10 dark:border-white/10 rounded-2xl p-12 text-center">
               <div className="mb-4">
-                <span className="text-4xl opacity-80">🎨</span>
+                <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
               </div>
               <h2 className="font-serif text-2xl italic mb-2 text-black/90 dark:text-white/90">No Works Found</h2>
               <p className="font-sans text-sm text-black/60 dark:text-white/60">
@@ -201,7 +202,7 @@ export default function Gallery() {
                         />
                       ) : (
                         <div className="w-full aspect-square flex items-center justify-center bg-black/10 dark:bg-white/10">
-                          <span className="text-4xl opacity-50">🎨</span>
+                          <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
                         </div>
                       )}
                     </div>

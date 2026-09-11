@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabaseClient';
 import Navbar from '../../component/Navbar';
 import AuthModal from '../../component/AuthModal';
 import { LoadingSpinner } from '../../component/LoadingStates';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 
 interface Work {
   id: string;
@@ -178,7 +178,7 @@ export default function WorkDetail() {
                       />
                       {img.is_featured && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <span className="text-amber-400 text-sm">★</span>
+                          <Star size={14} className="text-amber-400 fill-current" />
                         </div>
                       )}
                     </button>
@@ -200,7 +200,7 @@ export default function WorkDetail() {
                     </span>
                     {images[currentImageIndex].is_featured && (
                       <span className="px-3 py-1 bg-amber-100 dark:bg-amber-950/30 border border-amber-300/60 dark:border-amber-800/40 rounded-full font-sans text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                        ★ Featured
+                        <Star size={11} className="inline -mt-0.5 mr-1 fill-current" />Featured
                       </span>
                     )}
                   </div>
