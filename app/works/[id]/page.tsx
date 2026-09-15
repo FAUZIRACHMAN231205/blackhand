@@ -7,6 +7,9 @@ import { supabase } from '../../lib/supabaseClient';
 import Navbar from '../../component/Navbar';
 import AuthModal from '../../component/AuthModal';
 import { LoadingSpinner } from '../../component/LoadingStates';
+import AlbumPurchase from '../../component/AlbumPurchase';
+import LockedOverlay from '../../component/LockedOverlay';
+import { useAlbumAccess } from '../../hooks/useAlbumAccess';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 
 interface Work {
@@ -15,6 +18,8 @@ interface Work {
   description: string;
   category: string;
   created_at: string;
+  price_idr: number | null;
+  is_for_sale: boolean;
 }
 
 interface WorkImage {
@@ -35,6 +40,7 @@ export default function WorkDetail() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loadingWork, setLoadingWork] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
+  const { owned, unlockedUrls, refresh: refreshAccess } = useAlbumAccess(workId, Boolean(user));
 
   const fetchWorkDetail = async () => {
     try {
@@ -110,6 +116,12 @@ export default function WorkDetail() {
 
   const currentImage = images[currentImageIndex];
 
+  // The cover stays clean as a sample; the other five are blurred previews
+  // until the album is bought, at which point signed originals replace them.
+  const forSale = Boolean(work.is_for_sale && work.price_idr);
+  const isLocked = (img: WorkImage) => forSale && !owned && !img.is_featured;
+  const displayUrl = (img: WorkImage) => unlockedUrls[img.id] ?? img.image_url;
+
   return (
     <>
       <Navbar onOpenModal={() => setAuthOpen(true)} />
@@ -131,10 +143,13 @@ export default function WorkDetail() {
             <div className="lg:col-span-2">
               <div className="relative bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden mb-3 flex items-center justify-center h-[60vh] md:h-[500px]">
                 <img
-                  src={currentImage.image_url}
+                  src={displayUrl(currentImage)}
                   alt={work.title}
                   className="w-full h-full object-contain"
                 />
+                {isLocked(currentImage) && (
+                  <LockedOverlay hint="Beli album ini untuk membuka gambar resolusi penuh." />
+                )}
                 {images.length > 1 && (
                   <>
                     <button
@@ -172,10 +187,11 @@ export default function WorkDetail() {
                       }`}
                     >
                       <img
-                        src={img.image_url}
+                        src={displayUrl(img)}
                         alt={`Thumbnail ${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
+                      {isLocked(img) && <LockedOverlay compact />}
                       {img.is_featured && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                           <Star size={14} className="text-amber-400 fill-current" />
@@ -214,6 +230,17 @@ export default function WorkDetail() {
                     </p>
                   </div>
                 )}
+
+                <AlbumPurchase
+                  workId={workId}
+                  imageCount={images.length}
+                  priceIdr={work.price_idr}
+                  isForSale={work.is_for_sale}
+                  owned={owned}
+                  isLoggedIn={Boolean(user)}
+                  onRequireAuth={() => setAuthOpen(true)}
+                  onUnlocked={refreshAccess}
+                />
 
                 <div>
                   <h3 className="font-sans text-[10px] font-bold text-black/50 dark:text-white/50 mb-2.5 uppercase tracking-[0.2em]">Details</h3>

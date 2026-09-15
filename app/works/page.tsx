@@ -17,10 +17,13 @@ import {
   ChevronUp,
   Calendar,
   Loader2,
+  Tag,
 } from 'lucide-react';
 import Link from 'next/link';
 import RatingStars from '../component/RatingStars';
 import { LoadingSpinner, SkeletonCard } from '../component/LoadingStates';
+import LockedOverlay from '../component/LockedOverlay';
+import { formatIdr } from '../lib/categories';
 import type { Work, WorkImage } from '../types';
 
 const POSTS_PER_LOAD = 6;
@@ -66,15 +69,21 @@ function FeedPost({
   work,
   index,
   stats,
+  owned,
 }: {
   work: Work & { images?: WorkImage[] };
   index: number;
   stats?: { average: number; count: number; comments: number } | null;
+  owned: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
   const [images, setImages] = useState<WorkImage[]>(work.images || []);
   const commentCount = stats?.comments ?? 0;
+
+  // Only the cover is a clean sample; the rest stay blurred until bought.
+  const forSale = Boolean(work.is_for_sale && work.price_idr);
+  const locked = (img: WorkImage) => forSale && !owned && !img.is_featured;
 
   const isNew =
     Math.floor(
@@ -158,6 +167,12 @@ function FeedPost({
             className="w-full aspect-[16/10] object-cover"
             loading="lazy"
           />
+          {forSale && work.price_idr != null && (
+            <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white backdrop-blur-md">
+              <Tag size={10} strokeWidth={2} />
+              {owned ? 'Dimiliki' : formatIdr(work.price_idr)}
+            </span>
+          )}
         </div>
       )}
 
@@ -251,8 +266,9 @@ function FeedPost({
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
+                {locked(img) && <LockedOverlay compact />}
                 {img.is_featured && (
-                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-amber-400 text-black text-[9px] font-bold rounded-full shadow font-sans">
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-amber-400 text-black text-[9px] font-bold rounded-full shadow font-sans z-10">
                     <Star size={10} className="inline -mt-0.5 mr-1 fill-current" />Cover
                   </div>
                 )}
@@ -280,7 +296,32 @@ export default function ActivityFeed() {
   const [visibleCount, setVisibleCount] = useState(POSTS_PER_LOAD);
   const [hasMore, setHasMore] = useState(true);
   const [statsMap, setStatsMap] = useState<Record<string, { average: number; count: number; comments: number }>>({});
+  const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
   const [authOpen, setAuthOpen] = useState(false);
+
+  // One request tells us every album this visitor owns, so cards can show
+  // "Dimiliki" instead of a price without a per-card ownership check.
+  useEffect(() => {
+    if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOwnedIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/me/albums');
+        if (!res.ok) return;
+        const data: { workIds: string[] } = await res.json();
+        if (!cancelled) setOwnedIds(new Set(data.workIds));
+      } catch (err) {
+        console.error('Error loading owned albums:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const fetchWorks = useCallback(async () => {
     try {
@@ -290,7 +331,7 @@ export default function ActivityFeed() {
       const { data, error } = await supabase
         .from('works')
         .select(
-          'id, title, description, category, featured_image_url, is_featured, is_published, created_at'
+          'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale'
         )
         .eq('is_published', true)
         .gt('created_at', thirtyDaysAgo.toISOString())
@@ -305,7 +346,7 @@ export default function ActivityFeed() {
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('works')
           .select(
-            'id, title, description, category, featured_image_url, is_featured, is_published, created_at'
+            'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale'
           )
           .eq('is_published', true)
           .order('created_at', { ascending: false })
@@ -482,7 +523,13 @@ export default function ActivityFeed() {
                     {group.items.map((work) => {
                       const idx = globalIndex++;
                       return (
-                        <FeedPost key={work.id} work={work} index={idx} stats={statsMap[work.id] ?? null} />
+                        <FeedPost
+                          key={work.id}
+                          work={work}
+                          index={idx}
+                          stats={statsMap[work.id] ?? null}
+                          owned={ownedIds.has(work.id)}
+                        />
                       );
                     })}
                   </div>

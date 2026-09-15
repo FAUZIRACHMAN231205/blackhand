@@ -6,12 +6,12 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
 import AuthModal from '../component/AuthModal';
-import { ChevronLeft, Star, ImageOff } from 'lucide-react';
+import { ChevronLeft, Star, ImageOff, Tag } from 'lucide-react';
 import Link from 'next/link';
 import RatingStars from '../component/RatingStars';
 import { LoadingSpinner, SkeletonGrid } from '../component/LoadingStates';
 import type { Work } from '../types';
-import { WORK_CATEGORIES } from '../lib/categories';
+import { WORK_CATEGORIES, formatIdr } from '../lib/categories';
 
 export default function Gallery() {
   const { user, loading } = useAuth();
@@ -28,7 +28,7 @@ export default function Gallery() {
     try {
       const { data, error } = await supabase
         .from('works')
-        .select('id, title, description, category, featured_image_url, is_featured, is_published, created_at')
+        .select('id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale')
         .eq('is_published', true)
         .order('created_at', { ascending: false });
 
@@ -204,6 +204,12 @@ export default function Gallery() {
                         <div className="w-full aspect-square flex items-center justify-center bg-black/10 dark:bg-white/10">
                           <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
                         </div>
+                      )}
+                      {work.is_for_sale && work.price_idr != null && (
+                        <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white backdrop-blur-md">
+                          <Tag size={10} strokeWidth={2} />
+                          {formatIdr(work.price_idr)}
+                        </span>
                       )}
                     </div>
                     <div>

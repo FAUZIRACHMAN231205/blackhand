@@ -3,14 +3,16 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import ToastViewport from '../component/Toast';
 
+export type ToastType = 'success' | 'error' | 'info';
+
 export interface ToastItem {
   id: number;
-  type: 'success' | 'error';
+  type: ToastType;
   message: string;
 }
 
 interface ToastContextType {
-  showToast: (toast: { type: 'success' | 'error'; message: string }) => void;
+  showToast: (toast: { type: ToastType; message: string }) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -26,7 +28,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const showToast = useCallback(
-    ({ type, message }: { type: 'success' | 'error'; message: string }) => {
+    ({ type, message }: { type: ToastType; message: string }) => {
       const id = ++idRef.current;
       setToasts((prev) => [...prev, { id, type, message }]);
       setTimeout(() => dismissToast(id), TOAST_DURATION_MS);

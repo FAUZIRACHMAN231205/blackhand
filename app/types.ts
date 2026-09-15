@@ -22,6 +22,9 @@ export interface Work {
   created_at: string;
   updated_at?: string;
   created_by?: string;
+  /** Album price in rupiah. Null when the album has no price set. */
+  price_idr?: number | null;
+  is_for_sale?: boolean;
 }
 
 export interface WorkImage {
