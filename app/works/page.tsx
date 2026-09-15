@@ -79,11 +79,12 @@ function FeedPost({
   const [expanded, setExpanded] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
   const [images, setImages] = useState<WorkImage[]>(work.images || []);
+  const [originalUrls, setOriginalUrls] = useState<Record<string, string>>({});
   const commentCount = stats?.comments ?? 0;
 
-  // Only the cover is a clean sample; the rest stay blurred until bought.
+  // Only the cover is a clean sample; every other preview is stored blurred.
   const forSale = Boolean(work.is_for_sale && work.price_idr);
-  const locked = (img: WorkImage) => forSale && !owned && !img.is_featured;
+  const locked = (img: WorkImage) => !owned && !img.is_featured;
 
   const isNew =
     Math.floor(
@@ -114,6 +115,18 @@ function FeedPost({
         console.error('Error loading images:', err);
       } finally {
         setLoadingImages(false);
+      }
+    }
+
+    // Owners get the real images instead of blurred previews. Signed URLs
+    // expire, so they're only fetched on demand, when the gallery opens.
+    if (owned && Object.keys(originalUrls).length === 0) {
+      try {
+        const res = await fetch(`/api/works/${work.id}/album`);
+        const data: { images: { id: string; url: string }[] | null } = await res.json();
+        setOriginalUrls(Object.fromEntries((data.images ?? []).map((i) => [i.id, i.url])));
+      } catch (err) {
+        console.error('Error loading album originals:', err);
       }
     }
 
@@ -167,10 +180,10 @@ function FeedPost({
             className="w-full aspect-[16/10] object-cover"
             loading="lazy"
           />
-          {forSale && work.price_idr != null && (
+          {(owned || (forSale && work.price_idr != null)) && (
             <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white backdrop-blur-md">
               <Tag size={10} strokeWidth={2} />
-              {owned ? 'Dimiliki' : formatIdr(work.price_idr)}
+              {owned ? 'Dimiliki' : formatIdr(work.price_idr ?? 0)}
             </span>
           )}
         </div>
@@ -261,7 +274,7 @@ function FeedPost({
                 className="relative group rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 aspect-square"
               >
                 <img
-                  src={img.image_url}
+                  src={originalUrls[img.id] ?? img.image_url}
                   alt={`${work.title} — ${idx + 1}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"

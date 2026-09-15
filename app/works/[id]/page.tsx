@@ -116,10 +116,13 @@ export default function WorkDetail() {
 
   const currentImage = images[currentImageIndex];
 
-  // The cover stays clean as a sample; the other five are blurred previews
-  // until the album is bought, at which point signed originals replace them.
+  // The cover stays clean as a sample; every other preview is stored blurred,
+  // whether or not the album is on sale, until a buyer gets the signed originals.
   const forSale = Boolean(work.is_for_sale && work.price_idr);
-  const isLocked = (img: WorkImage) => forSale && !owned && !img.is_featured;
+  const isLocked = (img: WorkImage) => !owned && !img.is_featured;
+  const lockHint = forSale
+    ? 'Beli album ini untuk membuka gambar resolusi penuh.'
+    : 'Pratinjau terbatas — album ini belum tersedia untuk dibeli.';
   const displayUrl = (img: WorkImage) => unlockedUrls[img.id] ?? img.image_url;
 
   return (
@@ -148,7 +151,7 @@ export default function WorkDetail() {
                   className="w-full h-full object-contain"
                 />
                 {isLocked(currentImage) && (
-                  <LockedOverlay hint="Beli album ini untuk membuka gambar resolusi penuh." />
+                  <LockedOverlay hint={lockHint} />
                 )}
                 {images.length > 1 && (
                   <>
@@ -240,6 +243,8 @@ export default function WorkDetail() {
                   isLoggedIn={Boolean(user)}
                   onRequireAuth={() => setAuthOpen(true)}
                   onUnlocked={refreshAccess}
+                  currentImageId={currentImage.id}
+                  currentPosition={currentImageIndex + 1}
                 />
 
                 <div>

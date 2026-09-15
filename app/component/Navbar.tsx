@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { User, LogOut, Settings, Moon, Sun, Menu, X } from 'lucide-react';
+import { User, LogOut, Settings, Moon, Sun, Menu, X, Library } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { isAdmin } from '../lib/adminUtils';
 import { useTheme } from '../context/ThemeContext';
@@ -138,6 +138,17 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
                   {user.full_name || user.email}
                 </span>
               </span>
+              <Link
+                href="/albums"
+                className={`py-2 font-sans text-xs font-bold transition-colors flex items-center gap-1 ${
+                  pathname === '/albums'
+                    ? 'text-violet-600 dark:text-violet-400'
+                    : 'text-black dark:text-white hover:text-black/60 dark:hover:text-white/60'
+                }`}
+              >
+                <Library size={14} strokeWidth={2} />
+                <span>Album Saya</span>
+              </Link>
               {isAdmin(user) && (
                 <Link 
                   href="/admin"
@@ -255,6 +266,21 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
                 {link.label}
               </Link>
             ))}
+
+            {user && (
+              <Link
+                href="/albums"
+                onClick={() => setMenuOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl font-sans text-sm font-bold transition-colors ${
+                  pathname === '/albums'
+                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                    : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <Library size={16} strokeWidth={1.5} />
+                Album Saya
+              </Link>
+            )}
 
             {user && isAdmin(user) && (
               <Link

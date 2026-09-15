@@ -5,6 +5,7 @@ import Script from 'next/script';
 import { Lock, Loader2, ShieldCheck, Download } from 'lucide-react';
 import { formatIdr } from '../lib/categories';
 import { useToast } from '../context/ToastContext';
+import AlbumDownloads from './AlbumDownloads';
 
 /** Midtrans Snap injects this global once its script has loaded. */
 interface SnapCallbacks {
@@ -38,6 +39,9 @@ interface AlbumPurchaseProps {
   onRequireAuth: () => void;
   /** Called once payment is confirmed, so the page can unlock its images. */
   onUnlocked: () => void;
+  /** The image on screen, offered as a single JPG download once owned. */
+  currentImageId?: string;
+  currentPosition?: number;
 }
 
 export default function AlbumPurchase({
@@ -49,6 +53,8 @@ export default function AlbumPurchase({
   isLoggedIn,
   onRequireAuth,
   onUnlocked,
+  currentImageId,
+  currentPosition,
 }: AlbumPurchaseProps) {
   const { showToast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -128,23 +134,33 @@ export default function AlbumPurchase({
     }
   };
 
-  if (!isForSale || priceIdr == null) return null;
-
+  // Ownership outranks sale status: an album taken off sale must stay
+  // downloadable for everyone who already bought it.
   if (owned) {
     return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
-        <ShieldCheck size={18} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
-        <div className="min-w-0">
-          <p className="font-sans text-xs font-bold text-emerald-700 dark:text-emerald-400">
-            Album ini milik Anda
-          </p>
-          <p className="font-sans text-[11px] text-emerald-700/70 dark:text-emerald-400/70">
-            Semua {imageCount} gambar sudah terbuka.
-          </p>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
+          <ShieldCheck size={18} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <div className="min-w-0">
+            <p className="font-sans text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              Album ini milik Anda
+            </p>
+            <p className="font-sans text-[11px] text-emerald-700/70 dark:text-emerald-400/70">
+              Semua {imageCount} gambar sudah terbuka.
+            </p>
+          </div>
         </div>
+        <AlbumDownloads
+          workId={workId}
+          imageCount={imageCount}
+          currentImageId={currentImageId}
+          currentPosition={currentPosition}
+        />
       </div>
     );
   }
+
+  if (!isForSale || priceIdr == null) return null;
 
   return (
     <div className="space-y-3">
