@@ -17,16 +17,19 @@ export default function LockedOverlay({
   compact?: boolean;
 }) {
   return (
-    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/35 text-center backdrop-blur-[1px]">
+    // @container: the label only shows once the tile is wide enough to hold it,
+    // so tiny mobile thumbnails fall back to just the padlock instead of
+    // clipping the word.
+    <div className="@container pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/35 text-center backdrop-blur-[1px]">
       <div
         className={`flex items-center justify-center rounded-full border border-white/25 bg-black/55 text-white ${
           compact ? 'h-7 w-7' : 'h-11 w-11'
         }`}
       >
-        <Lock size={compact ? 13 : 18} strokeWidth={1.75} />
+        <Lock size={compact ? 13 : 18} strokeWidth={1.75} aria-label={label} />
       </div>
       <p
-        className={`font-sans font-bold uppercase tracking-[0.18em] text-white ${
+        className={`hidden @min-[4.5rem]:block font-sans font-bold uppercase tracking-[0.18em] text-white ${
           compact ? 'text-[9px]' : 'text-[10px]'
         }`}
       >
