@@ -1,124 +1,154 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import AuthModal from '@/app/component/AuthModal'
-import { supabase } from '@/app/lib/supabaseClient'
+import { ToastProvider } from '@/app/context/ToastContext'
 
-jest.mock('@/app/lib/supabaseClient')
-
+const push = jest.fn()
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    back: jest.fn(),
-    forward: jest.fn(),
-    refresh: jest.fn(),
-  }),
+  useRouter: () => ({ push, back: jest.fn(), forward: jest.fn(), refresh: jest.fn() }),
 }))
 
-describe('AuthModal Integration Tests', () => {
+function jsonResponse(body: unknown, ok = true) {
+  return Promise.resolve({ ok, json: () => Promise.resolve(body) } as Response)
+}
+
+// The app always renders the modal inside ToastProvider (root layout).
+function renderModal(isOpen = true) {
+  const onClose = jest.fn()
+  const utils = render(
+    <ToastProvider>
+      <AuthModal isOpen={isOpen} onClose={onClose} />
+    </ToastProvider>
+  )
+  return { ...utils, onClose }
+}
+
+async function submitEmail(email = 'buyer@example.com') {
+  fireEvent.change(screen.getByPlaceholderText('name@example.com'), { target: { value: email } })
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+}
+
+describe('AuthModal', () => {
+  const fetchMock = jest.fn()
+
   beforeEach(() => {
-    jest.clearAllMocks()
+    fetchMock.mockReset()
+    push.mockReset()
+    global.fetch = fetchMock as unknown as typeof fetch
   })
 
-  it('does not render when isOpen is false', () => {
-    const mockOnClose = jest.fn()
-    const { container } = render(<AuthModal isOpen={false} onClose={mockOnClose} />)
-
-    expect(container.firstChild).toBeNull()
+  it('renders nothing while closed', () => {
+    const { container } = renderModal(false)
+    expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders when isOpen is true', () => {
-    const mockOnClose = jest.fn()
-    render(<AuthModal isOpen={true} onClose={mockOnClose} />)
+  it('opens on the email step', () => {
+    renderModal()
 
-    expect(screen.getByText('Identity')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Continue with Google/i })).toBeInTheDocument()
+    const email = screen.getByPlaceholderText('name@example.com') as HTMLInputElement
+    expect(email.type).toBe('email')
   })
 
-  it('shows Google login button', () => {
-    const mockOnClose = jest.fn()
-    render(<AuthModal isOpen={true} onClose={mockOnClose} />)
+  it('closes from the close button and from the backdrop', () => {
+    const { onClose, container } = renderModal()
 
-    const googleButton = screen.getByText(/Continue with Google/i)
-    expect(googleButton).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(container.querySelector('.backdrop-blur-md') as Element)
+
+    expect(onClose).toHaveBeenCalledTimes(2)
   })
 
-  it('has email input field', () => {
-    const mockOnClose = jest.fn()
-    render(<AuthModal isOpen={true} onClose={mockOnClose} />)
+  it('starts Google sign-in as a full-page redirect', () => {
+    // jsdom can't navigate and says so on the console; that's expected here.
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    renderModal()
 
-    const emailInput = screen.getByPlaceholderText('name@example.com') as HTMLInputElement
-    expect(emailInput).toBeInTheDocument()
-    expect(emailInput.type).toBe('email')
+    fireEvent.click(screen.getByRole('button', { name: /Continue with Google/i }))
+
+    expect(screen.getByRole('button', { name: /Connecting/i })).toBeDisabled()
+    consoleError.mockRestore()
   })
 
-  it('has continue button for email submission', () => {
-    const mockOnClose = jest.fn()
-    render(<AuthModal isOpen={true} onClose={mockOnClose} />)
+  it('requests a code and moves to the code step', async () => {
+    fetchMock.mockReturnValue(jsonResponse({ success: true }))
+    renderModal()
 
-    const continueButtons = screen.getAllByText('Continue')
-    expect(continueButtons.length).toBeGreaterThan(0)
-  })
+    await submitEmail('buyer@example.com')
 
-  it('closes modal on close button click', () => {
-    const mockOnClose = jest.fn()
-    render(<AuthModal isOpen={true} onClose={mockOnClose} />)
-
-    // Find and click close button (X icon)
-    const closeButton = screen.getByRole('button', { name: '' })
-    fireEvent.click(closeButton)
-
-    expect(mockOnClose).toHaveBeenCalled()
-  })
-
-  it('calls Google OAuth when Google button clicked', async () => {
-    const mockOnClose = jest.fn()
-    ;(supabase.auth.signInWithOAuth as jest.Mock).mockResolvedValue({
-      error: null,
-    })
-
-    render(<AuthModal isOpen={true} onClose={mockOnClose} />)
-
-    const googleButton = screen.getByText(/Continue with Google/i)
-    fireEvent.click(googleButton)
-
-    await waitFor(() => {
-      expect(supabase.auth.signInWithOAuth).toHaveBeenCalled()
+    expect(await screen.findByRole('heading', { name: 'Enter code' })).toBeInTheDocument()
+    expect(screen.getByText('Sent to buyer@example.com')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/otp/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'buyer@example.com' }),
     })
   })
 
-  it('calls sendOTP when email submitted', async () => {
-    const mockOnClose = jest.fn()
-    ;(supabase.auth.signInWithOtp as jest.Mock).mockResolvedValue({
-      error: null,
-    })
+  it('stays on the email step and shows the server error when sending fails', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    fetchMock.mockReturnValue(jsonResponse({ error: 'Terlalu banyak permintaan' }, false))
+    renderModal()
 
-    render(<AuthModal isOpen={true} onClose={mockOnClose} />)
+    await submitEmail()
 
-    const emailInput = screen.getByPlaceholderText('name@example.com')
-    const continueButton = screen.getAllByText('Continue')[0]
+    expect(await screen.findByText('Terlalu banyak permintaan')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument()
+    consoleError.mockRestore()
+  })
 
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } })
-    fireEvent.click(continueButton)
+  it('keeps only digits in the code field, up to six', async () => {
+    fetchMock.mockReturnValue(jsonResponse({ success: true }))
+    renderModal()
+    await submitEmail()
 
-    await waitFor(() => {
-      expect(supabase.auth.signInWithOtp).toHaveBeenCalled()
+    const code = (await screen.findByPlaceholderText('6-digit code')) as HTMLInputElement
+    fireEvent.change(code, { target: { value: '12a3-45678' } })
+
+    expect(code.value).toBe('123456')
+  })
+
+  it('verifies the code, closes, and goes to the dashboard', async () => {
+    fetchMock.mockReturnValueOnce(jsonResponse({ success: true }))
+    fetchMock.mockReturnValueOnce(jsonResponse({ user: { id: 'user-1' } }))
+    const { onClose } = renderModal()
+    await submitEmail('buyer@example.com')
+
+    fireEvent.change(await screen.findByPlaceholderText('6-digit code'), { target: { value: '123456' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard'))
+    expect(onClose).toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/auth/otp/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'buyer@example.com', code: '123456' }),
     })
   })
 
-  it('transitions to OTP step after email submission', async () => {
-    const mockOnClose = jest.fn()
-    ;(supabase.auth.signInWithOtp as jest.Mock).mockResolvedValue({
-      error: null,
-    })
+  it('shows the error and stays open when the code is wrong', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    fetchMock.mockReturnValueOnce(jsonResponse({ success: true }))
+    fetchMock.mockReturnValueOnce(jsonResponse({ error: 'Kode salah' }, false))
+    const { onClose } = renderModal()
+    await submitEmail()
 
-    render(<AuthModal isOpen={true} onClose={mockOnClose} />)
+    fireEvent.change(await screen.findByPlaceholderText('6-digit code'), { target: { value: '000000' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
 
-    const emailInput = screen.getByPlaceholderText('name@example.com')
-    const continueButton = screen.getAllByText('Continue')[0]
+    expect(await screen.findByText('Kode salah')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
 
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } })
-    fireEvent.click(continueButton)
+  it('goes back to the email step to use a different address', async () => {
+    fetchMock.mockReturnValue(jsonResponse({ success: true }))
+    renderModal()
+    await submitEmail()
 
-    await waitFor(() => {
-      expect(screen.getByText('Enter code')).toBeInTheDocument()
-    })
+    fireEvent.click(await screen.findByRole('button', { name: /different email/i }))
+
+    expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument()
   })
 })
