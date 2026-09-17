@@ -41,8 +41,10 @@ describe('LoadingStates Components', () => {
     it('renders multiple placeholder lines', () => {
       const { container } = render(<SkeletonCard />)
 
-      const skeletonLines = container.querySelectorAll('.bg-gray-800')
-      expect(skeletonLines.length).toBeGreaterThan(0)
+      // Assert structure, not colour classes — the palette changes, the shape doesn't.
+      const card = container.querySelector('.animate-pulse')
+      const lines = card?.firstElementChild?.children
+      expect(lines?.length).toBeGreaterThan(1)
     })
   })
 

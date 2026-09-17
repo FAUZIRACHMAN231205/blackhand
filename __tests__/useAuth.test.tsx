@@ -1,127 +1,96 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useAuth } from '@/app/hooks/useAuth'
-import { supabase } from '@/app/lib/supabaseClient'
 
-jest.mock('@/app/lib/supabaseClient')
+// The session lives in an HttpOnly cookie the browser can't read, so the hook
+// learns who is signed in by asking the server. These tests fake that server.
 
-describe('useAuth Hook', () => {
+const mockUser = {
+  id: 'user-1',
+  email: 'buyer@example.com',
+  full_name: 'Test Buyer',
+  avatar_url: null,
+  provider: 'email',
+  role: 'user',
+}
+
+function jsonResponse(body: unknown, ok = true) {
+  return Promise.resolve({ ok, json: () => Promise.resolve(body) } as Response)
+}
+
+describe('useAuth', () => {
+  const fetchMock = jest.fn()
+
   beforeEach(() => {
-    jest.clearAllMocks()
+    fetchMock.mockReset()
+    global.fetch = fetchMock as unknown as typeof fetch
   })
 
-  it('initializes with loading state', () => {
-    const mockUser = null
-    ;(supabase.auth.getSession as jest.Mock).mockResolvedValue({
-      data: { session: null },
-    })
-    ;(supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
-      data: {
-        subscription: { unsubscribe: jest.fn() },
-      },
-    })
+  it('starts out loading with no user', () => {
+    fetchMock.mockReturnValue(new Promise(() => {})) // never resolves
 
     const { result } = renderHook(() => useAuth())
 
     expect(result.current.loading).toBe(true)
-    expect(result.current.user).toBe(null)
+    expect(result.current.user).toBeNull()
   })
 
-  it('fetches session on mount', async () => {
-    const mockSession = {
-      user: {
-        id: 'test-user-id',
-        email: 'test@example.com',
-      },
-    }
-
-    ;(supabase.auth.getSession as jest.Mock).mockResolvedValue({
-      data: { session: mockSession },
-    })
-    ;(supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
-      data: {
-        subscription: { unsubscribe: jest.fn() },
-      },
-    })
+  it('loads the signed-in user from /api/auth/me', async () => {
+    fetchMock.mockReturnValue(jsonResponse({ user: mockUser }))
 
     const { result } = renderHook(() => useAuth())
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
-    })
-
-    expect(supabase.auth.getSession).toHaveBeenCalled()
-  })
-
-  it('sets user when session exists', async () => {
-    const mockUser = {
-      id: 'test-user-id',
-      email: 'test@example.com',
-    }
-
-    ;(supabase.auth.getSession as jest.Mock).mockResolvedValue({
-      data: { session: { user: mockUser } },
-    })
-    ;(supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
-      data: {
-        subscription: { unsubscribe: jest.fn() },
-      },
-    })
-
-    const { result } = renderHook(() => useAuth())
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
-    })
-
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/me')
     expect(result.current.user).toEqual(mockUser)
   })
 
-  it('calls signOut when logout is invoked', async () => {
-    ;(supabase.auth.getSession as jest.Mock).mockResolvedValue({
-      data: { session: null },
-    })
-    ;(supabase.auth.signOut as jest.Mock).mockResolvedValue({})
-    ;(supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
-      data: {
-        subscription: { unsubscribe: jest.fn() },
-      },
-    })
+  it('reports no user when there is no session', async () => {
+    fetchMock.mockReturnValue(jsonResponse({ user: null }))
 
     const { result } = renderHook(() => useAuth())
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
-    })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+  })
+
+  it('treats a failed session check as signed out rather than hanging', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+    fetchMock.mockReturnValue(Promise.reject(new Error('offline')))
+
+    const { result } = renderHook(() => useAuth())
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+    consoleError.mockRestore()
+  })
+
+  it('logs out through the API and clears the user', async () => {
+    fetchMock.mockReturnValueOnce(jsonResponse({ user: mockUser }))
+    fetchMock.mockReturnValueOnce(jsonResponse({ success: true }))
+
+    const { result } = renderHook(() => useAuth())
+    await waitFor(() => expect(result.current.user).toEqual(mockUser))
 
     await act(async () => {
       await result.current.logout()
     })
 
-    expect(supabase.auth.signOut).toHaveBeenCalled()
-    expect(result.current.user).toBe(null)
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/auth/logout', { method: 'POST' })
+    expect(result.current.user).toBeNull()
   })
 
-  it('unsubscribes from auth state change on unmount', async () => {
-    const unsubscribeMock = jest.fn()
+  it('picks up a new session when refreshed', async () => {
+    fetchMock.mockReturnValueOnce(jsonResponse({ user: null }))
+    fetchMock.mockReturnValueOnce(jsonResponse({ user: mockUser }))
 
-    ;(supabase.auth.getSession as jest.Mock).mockResolvedValue({
-      data: { session: null },
-    })
-    ;(supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
-      data: {
-        subscription: { unsubscribe: unsubscribeMock },
-      },
-    })
+    const { result } = renderHook(() => useAuth())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
 
-    const { unmount } = renderHook(() => useAuth())
-
-    await waitFor(() => {
-      expect(supabase.auth.onAuthStateChange).toHaveBeenCalled()
+    await act(async () => {
+      await result.current.refresh()
     })
 
-    unmount()
-
-    // Note: Unsubscribe is called on unmount
-    expect(unsubscribeMock).toHaveBeenCalled()
+    expect(result.current.user).toEqual(mockUser)
   })
 })
