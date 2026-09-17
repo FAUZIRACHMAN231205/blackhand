@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, XCircle, X } from 'lucide-react';
+import { CheckCircle2, XCircle, Info, X } from 'lucide-react';
 import type { ToastItem } from '../context/ToastContext';
 
 interface ToastViewportProps {
@@ -20,6 +20,8 @@ export default function ToastViewport({ toasts, onDismiss }: ToastViewportProps)
         >
           {toast.type === 'success' ? (
             <CheckCircle2 size={18} strokeWidth={1.5} className="text-violet-400 shrink-0 mt-0.5" />
+          ) : toast.type === 'info' ? (
+            <Info size={18} strokeWidth={1.5} className="text-sky-400 shrink-0 mt-0.5" />
           ) : (
             <XCircle size={18} strokeWidth={1.5} className="text-rose-400 shrink-0 mt-0.5" />
           )}

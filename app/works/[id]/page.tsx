@@ -5,8 +5,12 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
 import Navbar from '../../component/Navbar';
+import AuthModal from '../../component/AuthModal';
 import { LoadingSpinner } from '../../component/LoadingStates';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import AlbumPurchase from '../../component/AlbumPurchase';
+import LockedOverlay from '../../component/LockedOverlay';
+import { useAlbumAccess } from '../../hooks/useAlbumAccess';
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 
 interface Work {
   id: string;
@@ -14,6 +18,8 @@ interface Work {
   description: string;
   category: string;
   created_at: string;
+  price_idr: number | null;
+  is_for_sale: boolean;
 }
 
 interface WorkImage {
@@ -33,13 +39,8 @@ export default function WorkDetail() {
   const [images, setImages] = useState<WorkImage[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loadingWork, setLoadingWork] = useState(true);
-
-  useEffect(() => {
-    // Redirect ke home jika belum login
-    if (!loading && !user) {
-      router.push('/');
-    }
-  }, [user, loading, router]);
+  const [authOpen, setAuthOpen] = useState(false);
+  const { owned, unlockedUrls, refresh: refreshAccess } = useAlbumAccess(workId, Boolean(user));
 
   const fetchWorkDetail = async () => {
     try {
@@ -80,11 +81,10 @@ export default function WorkDetail() {
   };
 
   useEffect(() => {
-    if (user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchWorkDetail();
-    }
-  }, [user, workId]);
+    // Public page: the work loads regardless of auth state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchWorkDetail();
+  }, [workId]);
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
@@ -98,7 +98,7 @@ export default function WorkDetail() {
     return <LoadingSpinner />;
   }
 
-  if (!user || !work || images.length === 0) {
+  if (!work || images.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950 transition-colors duration-300">
         <div className="text-center">
@@ -116,16 +116,26 @@ export default function WorkDetail() {
 
   const currentImage = images[currentImageIndex];
 
+  // The cover stays clean as a sample; every other preview is stored blurred,
+  // whether or not the album is on sale, until a buyer gets the signed originals.
+  const forSale = Boolean(work.is_for_sale && work.price_idr);
+  const isLocked = (img: WorkImage) => !owned && !img.is_featured;
+  const lockHint = forSale
+    ? 'Beli album ini untuk membuka gambar resolusi penuh.'
+    : 'Pratinjau terbatas — album ini belum tersedia untuk dibeli.';
+  const displayUrl = (img: WorkImage) => unlockedUrls[img.id] ?? img.image_url;
+
   return (
     <>
-      <Navbar onOpenModal={() => {}} />
+      <Navbar onOpenModal={() => setAuthOpen(true)} />
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-20 px-4 md:px-6 pb-16 transition-colors duration-300">
         <div className="max-w-5xl mx-auto">
           {/* Back Button */}
           <button
             onClick={() => router.push('/works')}
-            className="flex items-center gap-2 mb-3 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
+            className="flex items-center gap-2 py-2 mb-2 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
           >
             <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="font-sans text-sm font-medium">Back to Gallery</span>
@@ -136,10 +146,13 @@ export default function WorkDetail() {
             <div className="lg:col-span-2">
               <div className="relative bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden mb-3 flex items-center justify-center h-[60vh] md:h-[500px]">
                 <img
-                  src={currentImage.image_url}
+                  src={displayUrl(currentImage)}
                   alt={work.title}
                   className="w-full h-full object-contain"
                 />
+                {isLocked(currentImage) && (
+                  <LockedOverlay hint={lockHint} />
+                )}
                 {images.length > 1 && (
                   <>
                     <button
@@ -177,13 +190,14 @@ export default function WorkDetail() {
                       }`}
                     >
                       <img
-                        src={img.image_url}
+                        src={displayUrl(img)}
                         alt={`Thumbnail ${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
+                      {isLocked(img) && <LockedOverlay compact />}
                       {img.is_featured && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <span className="text-amber-400 text-sm">★</span>
+                          <Star size={14} className="text-amber-400 fill-current" />
                         </div>
                       )}
                     </button>
@@ -205,7 +219,7 @@ export default function WorkDetail() {
                     </span>
                     {images[currentImageIndex].is_featured && (
                       <span className="px-3 py-1 bg-amber-100 dark:bg-amber-950/30 border border-amber-300/60 dark:border-amber-800/40 rounded-full font-sans text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                        ★ Featured
+                        <Star size={11} className="inline -mt-0.5 mr-1 fill-current" />Featured
                       </span>
                     )}
                   </div>
@@ -219,6 +233,19 @@ export default function WorkDetail() {
                     </p>
                   </div>
                 )}
+
+                <AlbumPurchase
+                  workId={workId}
+                  imageCount={images.length}
+                  priceIdr={work.price_idr}
+                  isForSale={work.is_for_sale}
+                  owned={owned}
+                  isLoggedIn={Boolean(user)}
+                  onRequireAuth={() => setAuthOpen(true)}
+                  onUnlocked={refreshAccess}
+                  currentImageId={currentImage.id}
+                  currentPosition={currentImageIndex + 1}
+                />
 
                 <div>
                   <h3 className="font-sans text-[10px] font-bold text-black/50 dark:text-white/50 mb-2.5 uppercase tracking-[0.2em]">Details</h3>

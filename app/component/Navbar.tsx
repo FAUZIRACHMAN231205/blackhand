@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { User, LogOut, Settings, Moon, Sun, Menu, X } from 'lucide-react';
+import { User, LogOut, Settings, Moon, Sun, Menu, X, Library } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { isAdmin } from '../lib/adminUtils';
 import { useTheme } from '../context/ThemeContext';
@@ -96,7 +96,7 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
             <Link
               key={link.href}
               href={link.href}
-              className={`transition-colors ${
+              className={`py-2 transition-colors ${
                 pathname === link.href
                   ? 'text-violet-600 dark:text-violet-400'
                   : 'hover:text-black/60 dark:hover:text-white/60'
@@ -112,7 +112,7 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
           {/* Dark Mode Toggle (desktop) */}
           <button
             onClick={toggleTheme}
-            className="hidden md:block text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors"
+            className="hidden md:flex h-10 w-10 -m-2 items-center justify-center text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors"
             aria-label="Toggle dark mode"
           >
             {isDark ? <Sun size={18} strokeWidth={1.5} /> : <Moon size={18} strokeWidth={1.5} />}
@@ -121,13 +121,38 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
           {/* Desktop user controls */}
           {user ? (
             <div className="hidden md:flex items-center space-x-3">
-              <span className="font-sans text-xs text-black dark:text-white hidden sm:block truncate max-w-[150px]">
-                {user.email?.substring(0, 5).toUpperCase()}
+              <span className="hidden sm:flex items-center gap-2 max-w-[190px]">
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="w-7 h-7 rounded-full object-cover border border-black/10 dark:border-white/15"
+                  />
+                ) : (
+                  <span className="w-7 h-7 shrink-0 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black flex items-center justify-center font-serif text-xs">
+                    {(user.full_name || user.email || 'B').charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="font-sans text-xs text-black dark:text-white truncate">
+                  {user.full_name || user.email}
+                </span>
               </span>
+              <Link
+                href="/albums"
+                className={`py-2 font-sans text-xs font-bold transition-colors flex items-center gap-1 ${
+                  pathname === '/albums'
+                    ? 'text-violet-600 dark:text-violet-400'
+                    : 'text-black dark:text-white hover:text-black/60 dark:hover:text-white/60'
+                }`}
+              >
+                <Library size={14} strokeWidth={2} />
+                <span>Album Saya</span>
+              </Link>
               {isAdmin(user) && (
                 <Link 
                   href="/admin"
-                  className="font-sans text-xs font-bold text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors flex items-center gap-1"
+                  className="py-2 font-sans text-xs font-bold text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors flex items-center gap-1"
                 >
                   <Settings size={14} strokeWidth={2} />
                   <span className="hidden sm:block">Admin</span>
@@ -135,7 +160,7 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
               )}
               <button 
                 onClick={handleLogout}
-                className="font-sans text-xs font-bold text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors"
+                className="py-2 font-sans text-xs font-bold text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors"
               >
                 Logout
               </button>
@@ -143,7 +168,7 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
           ) : (
             <button 
               onClick={onOpenModal}
-              className="hidden md:flex items-center space-x-2 font-sans text-xs font-bold tracking-[0.15em] uppercase text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors"
+              className="hidden md:flex py-2 items-center space-x-2 font-sans text-xs font-bold tracking-[0.15em] uppercase text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors"
             >
               <User size={16} strokeWidth={2} />
               <span className="hidden sm:block">
@@ -190,7 +215,7 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
             </span>
             <button
               onClick={() => setMenuOpen(false)}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/5 dark:bg-white/5 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+              className="w-11 h-11 flex items-center justify-center rounded-xl bg-black/5 dark:bg-white/5 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
               aria-label="Close menu"
             >
               <X size={18} strokeWidth={1.5} />
@@ -205,6 +230,7 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
                   <img
                     src={user.avatar_url}
                     alt="Avatar"
+                    referrerPolicy="no-referrer"
                     className="w-10 h-10 rounded-full border-2 border-violet-500/30 object-cover"
                   />
                 ) : (
@@ -240,6 +266,21 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
                 {link.label}
               </Link>
             ))}
+
+            {user && (
+              <Link
+                href="/albums"
+                onClick={() => setMenuOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl font-sans text-sm font-bold transition-colors ${
+                  pathname === '/albums'
+                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                    : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <Library size={16} strokeWidth={1.5} />
+                Album Saya
+              </Link>
+            )}
 
             {user && isAdmin(user) && (
               <Link

@@ -24,9 +24,6 @@ export function useAuth() {
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('bh_login_theme_applied');
-    }
     setUser(null);
   };
 

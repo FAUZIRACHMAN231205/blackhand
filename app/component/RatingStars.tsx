@@ -238,7 +238,7 @@ export default function RatingStars({
       {!readOnly && showCommentForm && (
         <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900 border border-violet-500/30 rounded-xl space-y-2.5 animate-fade-in-up">
           <p className="text-[11px] font-bold text-violet-600 dark:text-violet-400">
-            Tulis Komentar untuk Rating {pendingRating}★ Anda:
+            Tulis Komentar untuk Rating {pendingRating} <Star size={12} className="inline -mt-0.5 fill-current" /> Anda:
           </p>
           <textarea
             value={commentText}

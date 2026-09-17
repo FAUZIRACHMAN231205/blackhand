@@ -5,7 +5,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
+import AuthModal from '../component/AuthModal';
 import {
+  Star,
   ChevronLeft,
   Sparkles,
   Clock,
@@ -15,10 +17,13 @@ import {
   ChevronUp,
   Calendar,
   Loader2,
+  Tag,
 } from 'lucide-react';
 import Link from 'next/link';
 import RatingStars from '../component/RatingStars';
 import { LoadingSpinner, SkeletonCard } from '../component/LoadingStates';
+import LockedOverlay from '../component/LockedOverlay';
+import { formatIdr } from '../lib/categories';
 import type { Work, WorkImage } from '../types';
 
 const POSTS_PER_LOAD = 6;
@@ -64,15 +69,22 @@ function FeedPost({
   work,
   index,
   stats,
+  owned,
 }: {
   work: Work & { images?: WorkImage[] };
   index: number;
   stats?: { average: number; count: number; comments: number } | null;
+  owned: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
   const [images, setImages] = useState<WorkImage[]>(work.images || []);
+  const [originalUrls, setOriginalUrls] = useState<Record<string, string>>({});
   const commentCount = stats?.comments ?? 0;
+
+  // Only the cover is a clean sample; every other preview is stored blurred.
+  const forSale = Boolean(work.is_for_sale && work.price_idr);
+  const locked = (img: WorkImage) => !owned && !img.is_featured;
 
   const isNew =
     Math.floor(
@@ -103,6 +115,18 @@ function FeedPost({
         console.error('Error loading images:', err);
       } finally {
         setLoadingImages(false);
+      }
+    }
+
+    // Owners get the real images instead of blurred previews. Signed URLs
+    // expire, so they're only fetched on demand, when the gallery opens.
+    if (owned && Object.keys(originalUrls).length === 0) {
+      try {
+        const res = await fetch(`/api/works/${work.id}/album`);
+        const data: { images: { id: string; url: string }[] | null } = await res.json();
+        setOriginalUrls(Object.fromEntries((data.images ?? []).map((i) => [i.id, i.url])));
+      } catch (err) {
+        console.error('Error loading album originals:', err);
       }
     }
 
@@ -156,6 +180,12 @@ function FeedPost({
             className="w-full aspect-[16/10] object-cover"
             loading="lazy"
           />
+          {(owned || (forSale && work.price_idr != null)) && (
+            <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white backdrop-blur-md">
+              <Tag size={10} strokeWidth={2} />
+              {owned ? 'Dimiliki' : formatIdr(work.price_idr ?? 0)}
+            </span>
+          )}
         </div>
       )}
 
@@ -244,14 +274,15 @@ function FeedPost({
                 className="relative group rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 aspect-square"
               >
                 <img
-                  src={img.image_url}
+                  src={originalUrls[img.id] ?? img.image_url}
                   alt={`${work.title} — ${idx + 1}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
+                {locked(img) && <LockedOverlay compact />}
                 {img.is_featured && (
-                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-amber-400 text-black text-[9px] font-bold rounded-full shadow font-sans">
-                    ⭐ Cover
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-amber-400 text-black text-[9px] font-bold rounded-full shadow font-sans z-10">
+                    <Star size={10} className="inline -mt-0.5 mr-1 fill-current" />Cover
                   </div>
                 )}
               </div>
@@ -278,12 +309,32 @@ export default function ActivityFeed() {
   const [visibleCount, setVisibleCount] = useState(POSTS_PER_LOAD);
   const [hasMore, setHasMore] = useState(true);
   const [statsMap, setStatsMap] = useState<Record<string, { average: number; count: number; comments: number }>>({});
+  const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
+  const [authOpen, setAuthOpen] = useState(false);
 
+  // One request tells us every album this visitor owns, so cards can show
+  // "Dimiliki" instead of a price without a per-card ownership check.
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/');
+    if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOwnedIds(new Set());
+      return;
     }
-  }, [user, loading, router]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/me/albums');
+        if (!res.ok) return;
+        const data: { workIds: string[] } = await res.json();
+        if (!cancelled) setOwnedIds(new Set(data.workIds));
+      } catch (err) {
+        console.error('Error loading owned albums:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const fetchWorks = useCallback(async () => {
     try {
@@ -293,7 +344,7 @@ export default function ActivityFeed() {
       const { data, error } = await supabase
         .from('works')
         .select(
-          'id, title, description, category, featured_image_url, is_featured, is_published, created_at'
+          'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale'
         )
         .eq('is_published', true)
         .gt('created_at', thirtyDaysAgo.toISOString())
@@ -308,7 +359,7 @@ export default function ActivityFeed() {
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('works')
           .select(
-            'id, title, description, category, featured_image_url, is_featured, is_published, created_at'
+            'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale'
           )
           .eq('is_published', true)
           .order('created_at', { ascending: false })
@@ -333,10 +384,9 @@ export default function ActivityFeed() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      fetchWorks();
-    }
-  }, [user, fetchWorks]);
+    // Public feed: published works load regardless of auth state.
+    fetchWorks();
+  }, [fetchWorks]);
 
   // One aggregated request for every visible card's rating + comment count,
   // instead of two Supabase reads per FeedPost.
@@ -372,10 +422,6 @@ export default function ActivityFeed() {
     return <LoadingSpinner />;
   }
 
-  if (!user) {
-    return null;
-  }
-
   // ── Group works by date ─────────────────────────────────────────────
   const visibleWorks = works.slice(0, visibleCount);
   const groupedWorks: { label: string; items: Work[] }[] = [];
@@ -395,7 +441,8 @@ export default function ActivityFeed() {
 
   return (
     <>
-      <Navbar onOpenModal={() => {}} />
+      <Navbar onOpenModal={() => setAuthOpen(true)} />
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-4 md:p-6 transition-colors duration-300 relative overflow-hidden">
         {/* Ambient Background */}
@@ -405,15 +452,15 @@ export default function ActivityFeed() {
         <div className="max-w-2xl mx-auto relative z-10 space-y-8">
           {/* Back Button */}
           <button
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
+            onClick={() => router.push(user ? '/dashboard' : '/')}
+            className="flex items-center gap-2 py-2 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
           >
             <ChevronLeft
               size={20}
               className="group-hover:-translate-x-1 transition-transform"
             />
             <span className="font-sans text-sm font-semibold">
-              Back to Dashboard
+              {user ? 'Back to Dashboard' : 'Back to Home'}
             </span>
           </button>
 
@@ -489,7 +536,13 @@ export default function ActivityFeed() {
                     {group.items.map((work) => {
                       const idx = globalIndex++;
                       return (
-                        <FeedPost key={work.id} work={work} index={idx} stats={statsMap[work.id] ?? null} />
+                        <FeedPost
+                          key={work.id}
+                          work={work}
+                          index={idx}
+                          stats={statsMap[work.id] ?? null}
+                          owned={ownedIds.has(work.id)}
+                        />
                       );
                     })}
                   </div>

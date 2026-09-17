@@ -73,12 +73,31 @@ NEXT_PUBLIC_APP_EMAIL=onboarding@resend.dev   # a verified sender/domain
 GOOGLE_CLIENT_ID=<google-oauth-client-id>
 GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
+# Optional: defaults to /api/drive/google/callback on the same origin as GOOGLE_REDIRECT_URI
+# GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3000/api/drive/google/callback
+
+# Payments (Midtrans Snap) — from the Midtrans dashboard → Settings → Access Keys
+MIDTRANS_SERVER_KEY=<midtrans-server-key>              # server-only
+NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=<midtrans-client-key>  # `SB-` prefix = sandbox
+MIDTRANS_IS_PRODUCTION=false
 ```
+
+> **Payments are optional in development.** Without `MIDTRANS_SERVER_KEY` the buy
+> endpoint answers `503` and the webhook refuses every notification, so nothing can be
+> marked paid by accident. The Snap popup host (sandbox vs production) is picked from the
+> client key's `SB-` prefix.
 
 > **Heads up on OTP email in development:** with Resend's shared `onboarding@resend.dev`
 > sender and a test API key, codes are only delivered to the email address that owns the
 > Resend account. To send to any address, verify a domain at resend.com and set
 > `NEXT_PUBLIC_APP_EMAIL` to an address on that domain. (Google sign-in has no such limit.)
+
+> **Save to Google Drive** reuses the Google OAuth client above. In Google Cloud Console:
+> enable the **Google Drive API**, add the `…/auth/drive.file` scope to the OAuth consent
+> screen, and add `http://localhost:3000/api/drive/google/callback` (plus your production
+> equivalent) to the client's **Authorised redirect URIs**. `drive.file` only reaches files
+> the app creates, so it is a non-sensitive scope that needs no Google verification.
+> Access tokens are used once and never stored.
 
 ### 3. Set up the database
 
@@ -88,8 +107,19 @@ In the **Supabase → SQL Editor**, run the migrations in `docs/` **in this orde
 2. `docs/DATABASE_SCHEMA_RATINGS_COMMENTS.sql` — `work_ratings` + `work_comments` tables
 3. `docs/DATABASE_SCHEMA_CUSTOM_AUTH.sql` — `users` + `otp_codes`; swaps foreign keys to the custom `users` table and reworks RLS for the custom-auth model
 4. `docs/DATABASE_MIGRATION_ADD_ROLE.sql` — adds the `role` column and promotes the admin account(s)
+5. `docs/DATABASE_MIGRATION_PAYMENTS.sql` — album pricing, the `orders` table, and the private `work-originals` bucket
 
-Then create a **public Storage bucket** named `work-images` (used for work image uploads).
+Then create a **public Storage bucket** named `work-images`. It only ever holds
+previews — the cover image clean, the rest blurred. Full-resolution files live in the
+**private** `work-originals` bucket and are handed out as short-lived signed URLs to
+buyers only.
+
+If you have works that were uploaded before step 5, move their originals into the
+private bucket and regenerate previews (idempotent, safe to re-run):
+
+```bash
+node scripts/migrate-originals.mjs
+```
 
 > The custom-auth migration (step 3) is what moves the project off Supabase Auth onto the
 > app's own `users` table — after it runs, sign-in is handled entirely by this app, and
@@ -133,8 +163,9 @@ Open [http://localhost:3000](http://localhost:3000).
 | --- | --- | --- |
 | `/` | Landing + auth modal | Public |
 | `/dashboard` | User dashboard | Signed-in |
-| `/gallery`, `/gallery/[id]` | Collection grid + work detail (ratings/comments) | Signed-in |
-| `/works`, `/works/[id]` | Activity feed + work detail | Signed-in |
+| `/gallery`, `/gallery/[id]` | Collection grid + album detail (buy, ratings, comments) | Public — rating, commenting and buying ask you to sign in |
+| `/works`, `/works/[id]` | Activity feed + album detail | Public |
+| `/albums` | Album Saya — owned albums, pending payments, downloads | Signed-in |
 | `/settings` | Profile & session settings | Signed-in |
 | `/admin` | Admin dashboard | Admin |
 | `/admin/works`, `/admin/works/create`, `/admin/works/[id]/edit` | Manage / create / edit works | Admin |
@@ -144,6 +175,13 @@ Open [http://localhost:3000](http://localhost:3000).
 - `auth/otp/request`, `auth/otp/verify`, `auth/google`, `auth/google/callback`, `auth/logout`, `auth/me`
 - `profile` — update the signed-in user's profile
 - `works/[id]/ratings`, `works/[id]/comments`, `works/ratings/summary` (aggregated list stats), `comments/[id]`
+- `works/[id]/purchase` — open a Midtrans Snap transaction for an album (signed-in)
+- `works/[id]/album` — ownership check; returns signed full-resolution URLs to the owner
+- `works/[id]/download?format=jpg&image=…|zip|pdf` — owner downloads; JPEG originals pass through byte-for-byte, the PDF is one page per image
+- `works/[id]/drive` → `drive/google/callback` — copies an owned album into a new folder in the buyer's Google Drive
+- `me/albums` — ids of albums the signed-in visitor owns
+- `me/purchases` — owned albums plus payments still awaiting confirmation (for `/albums`)
+- `payments/midtrans/webhook` — payment notifications; **the only place an order becomes paid** (signature-verified, amount-checked, idempotent)
 - `admin/stats`, `admin/works`, `admin/works/[id]`, `admin/works/[id]/images`, `admin/works/[id]/images/upload-url`, `admin/images/[id]`
 
 ## Project structure

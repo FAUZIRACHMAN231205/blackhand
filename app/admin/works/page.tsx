@@ -8,7 +8,8 @@ import Navbar from '../../component/Navbar';
 import { LoadingSpinner } from '../../component/LoadingStates';
 import ConfirmDialog from '../../component/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
-import { Plus, Edit2, Trash2, ChevronLeft } from 'lucide-react';
+import { Plus, Edit2, Trash2, ChevronLeft, ImageOff } from 'lucide-react';
+import { formatIdr } from '../../lib/categories';
 import Link from 'next/link';
 
 interface Work {
@@ -18,6 +19,8 @@ interface Work {
   is_published: boolean;
   is_featured: boolean;
   created_at: string;
+  price_idr: number | null;
+  is_for_sale: boolean;
 }
 
 export default function AdminWorks() {
@@ -105,7 +108,7 @@ export default function AdminWorks() {
           {/* Header */}
           <button
             onClick={() => router.push('/admin')}
-            className="flex items-center gap-2 mb-8 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
+            className="flex items-center gap-2 py-2 mb-6 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
           >
             <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="font-sans text-sm font-medium">Back to Admin</span>
@@ -138,7 +141,7 @@ export default function AdminWorks() {
             <div className="bg-white/80 dark:bg-zinc-950/60 border border-dashed border-black/10 dark:border-white/15 rounded-2xl p-12 text-center transition-colors">
               <div className="mb-4">
                 <div className="w-16 h-16 bg-violet-500/10 rounded-full mx-auto flex items-center justify-center">
-                  <span className="text-2xl">🎨</span>
+                  <ImageOff size={28} strokeWidth={1.25} className="opacity-40" />
                 </div>
               </div>
               <h2 className="font-serif text-2xl italic mb-2">No Works Yet</h2>
@@ -173,9 +176,14 @@ export default function AdminWorks() {
                           </span>
                         )}
                       </div>
-                      <div className="flex gap-4 font-sans text-xs text-black/50 dark:text-white/50">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 font-sans text-xs text-black/50 dark:text-white/50">
                         <span>{work.category}</span>
                         <span>{new Date(work.created_at).toLocaleDateString('id-ID')}</span>
+                        <span className={work.is_for_sale ? 'font-bold text-emerald-600 dark:text-emerald-400' : ''}>
+                          {work.is_for_sale && work.price_idr != null
+                            ? formatIdr(work.price_idr)
+                            : 'Not for sale'}
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

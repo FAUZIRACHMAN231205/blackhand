@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, AlertCircle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
-import { useTheme } from '../context/ThemeContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -14,7 +13,6 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const router = useRouter();
   const { showToast } = useToast();
-  const { setTheme } = useTheme();
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -91,8 +89,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         throw new Error(data.error || 'Verification failed');
       }
 
-      // Jika berhasil login, atur default dark mode, tutup modal dan redirect ke dashboard
-      setTheme('dark');
+      // Login must not override the theme the user chose.
       onClose();
       router.push('/dashboard');
     } catch (error: unknown) {
@@ -184,7 +181,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full bg-white/5 border border-white/10 px-4 py-3.5 rounded-xl font-sans text-sm text-white focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all placeholder:text-zinc-700 disabled:opacity-50"
+                    className="w-full bg-white/5 border border-white/10 px-4 py-3.5 rounded-xl font-sans text-base text-white focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all placeholder:text-zinc-500 disabled:opacity-50"
                   />
                 </div>
                 <button 
@@ -211,7 +208,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="6-digit code"
-                  className="w-full bg-white/5 border border-white/10 px-4 py-4 rounded-xl font-sans text-center text-xl tracking-[0.5em] text-white focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all placeholder:tracking-normal placeholder:text-sm placeholder:text-zinc-700 disabled:opacity-50"
+                  className="w-full bg-white/5 border border-white/10 px-4 py-4 rounded-xl font-sans text-center text-xl tracking-[0.5em] text-white focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all placeholder:tracking-normal placeholder:text-sm placeholder:text-zinc-500 disabled:opacity-50"
                 />
               </div>
               <button 

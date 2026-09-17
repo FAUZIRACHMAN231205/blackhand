@@ -5,11 +5,13 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
-import { ChevronLeft } from 'lucide-react';
+import AuthModal from '../component/AuthModal';
+import { ChevronLeft, Star, ImageOff, Tag } from 'lucide-react';
 import Link from 'next/link';
 import RatingStars from '../component/RatingStars';
 import { LoadingSpinner, SkeletonGrid } from '../component/LoadingStates';
 import type { Work } from '../types';
+import { WORK_CATEGORIES, formatIdr } from '../lib/categories';
 
 export default function Gallery() {
   const { user, loading } = useAuth();
@@ -18,21 +20,15 @@ export default function Gallery() {
   const [loadingWorks, setLoadingWorks] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [ratingStats, setRatingStats] = useState<Record<string, { average: number; count: number }>>({});
+  const [authOpen, setAuthOpen] = useState(false);
 
-  const CATEGORIES = ['Paintings', 'Digital Art', 'Sculptures'];
-
-  useEffect(() => {
-    // Redirect ke home jika belum login
-    if (!loading && !user) {
-      router.push('/');
-    }
-  }, [user, loading, router]);
+  const CATEGORIES = WORK_CATEGORIES;
 
   const fetchWorks = async () => {
     try {
       const { data, error } = await supabase
         .from('works')
-        .select('id, title, description, category, featured_image_url, is_featured, is_published, created_at')
+        .select('id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale')
         .eq('is_published', true)
         .order('created_at', { ascending: false });
 
@@ -65,18 +61,13 @@ export default function Gallery() {
   };
 
   useEffect(() => {
-    if (user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchWorks();
-    }
-  }, [user]);
+    // Public page: published works load regardless of auth state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchWorks();
+  }, []);
 
   if (loading) {
     return <LoadingSpinner />;
-  }
-
-  if (!user) {
-    return null;
   }
 
   const filteredWorks = selectedCategory
@@ -87,17 +78,18 @@ export default function Gallery() {
 
   return (
     <>
-      <Navbar onOpenModal={() => {}} />
+      <Navbar onOpenModal={() => setAuthOpen(true)} />
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors duration-300">
         <div className="max-w-7xl mx-auto">
           {/* Back to Dashboard Button */}
           <button
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 mb-8 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
+            onClick={() => router.push(user ? '/dashboard' : '/')}
+            className="flex items-center gap-2 py-2 mb-6 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
           >
             <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="font-sans text-sm font-medium">Back to Dashboard</span>
+            <span className="font-sans text-sm font-medium">{user ? 'Back to Dashboard' : 'Back to Home'}</span>
           </button>
 
           {/* Header Section */}
@@ -129,7 +121,7 @@ export default function Gallery() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-8">
                         <div className="text-white">
                           <span className="inline-block px-3 py-1 bg-amber-400 text-black font-sans text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
-                            ★ Featured
+                            <Star size={11} className="inline -mt-0.5 mr-1 fill-current" />Featured
                           </span>
                           <h3 className="font-serif text-2xl italic">{work.title}</h3>
                           <p className="font-sans text-sm opacity-80 mt-1">{work.category}</p>
@@ -144,16 +136,16 @@ export default function Gallery() {
 
           {/* Categories Filter */}
           <div className="mb-10">
-            <h3 className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/40 dark:text-white/40 mb-4 px-1">
+            <h3 className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/60 dark:text-white/60 mb-4 px-1">
               Filter by Category
             </h3>
             <div className="flex flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible hide-scrollbar pb-2 md:pb-0 gap-x-6 md:gap-x-8 px-1">
               <button
                 onClick={() => setSelectedCategory(null)}
-                className={`relative pb-1 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
+                className={`relative py-2 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
                   selectedCategory === null
                     ? 'text-black dark:text-white'
-                    : 'text-black/40 dark:text-white/40 hover:text-black/70 dark:hover:text-white/70'
+                    : 'text-black/60 dark:text-white/60 hover:text-black/70 dark:hover:text-white/70'
                 }`}
               >
                 All
@@ -165,10 +157,10 @@ export default function Gallery() {
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`relative pb-1 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
+                  className={`relative py-2 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
                     selectedCategory === cat
                       ? 'text-black dark:text-white'
-                      : 'text-black/40 dark:text-white/40 hover:text-black/70 dark:hover:text-white/70'
+                      : 'text-black/60 dark:text-white/60 hover:text-black/70 dark:hover:text-white/70'
                   }`}
                 >
                   {cat}
@@ -186,7 +178,7 @@ export default function Gallery() {
           ) : filteredWorks.length === 0 ? (
             <div className="bg-black/[0.02] dark:bg-slate-900/40 border border-dashed border-black/10 dark:border-white/10 rounded-2xl p-12 text-center">
               <div className="mb-4">
-                <span className="text-4xl opacity-80">🎨</span>
+                <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
               </div>
               <h2 className="font-serif text-2xl italic mb-2 text-black/90 dark:text-white/90">No Works Found</h2>
               <p className="font-sans text-sm text-black/60 dark:text-white/60">
@@ -210,8 +202,14 @@ export default function Gallery() {
                         />
                       ) : (
                         <div className="w-full aspect-square flex items-center justify-center bg-black/10 dark:bg-white/10">
-                          <span className="text-4xl opacity-50">🎨</span>
+                          <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
                         </div>
+                      )}
+                      {work.is_for_sale && work.price_idr != null && (
+                        <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white backdrop-blur-md">
+                          <Tag size={10} strokeWidth={2} />
+                          {formatIdr(work.price_idr)}
+                        </span>
                       )}
                     </div>
                     <div>
