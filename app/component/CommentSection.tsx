@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { MessageSquare, Send, Trash2, Loader2, AlertCircle, Star } from 'lucide-react';
 import type { WorkComment } from '../types';
@@ -38,6 +38,32 @@ function commentTimeAgo(dateStr: string): string {
   });
 }
 
+/** Each commenter's own rating of this work, keyed by user id. */
+async function loadCommenterRatings(workId: string): Promise<Record<string, number> | null> {
+  try {
+    const { data, error } = await supabase
+      .from('work_ratings')
+      .select('user_id, rating')
+      .eq('work_id', workId);
+    if (error || !data) return null;
+    return Object.fromEntries(data.map((r) => [r.user_id, r.rating]));
+  } catch (err) {
+    console.error('Error fetching commenter ratings:', err);
+    return null;
+  }
+}
+
+/** Newest first. Throws so the caller can show an error. */
+async function loadComments(workId: string): Promise<WorkComment[]> {
+  const { data, error } = await supabase
+    .from('work_comments')
+    .select('*')
+    .eq('work_id', workId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
 export default function CommentSection({
   workId,
   userId,
@@ -55,47 +81,31 @@ export default function CommentSection({
   const [error, setError] = useState<string | null>(null);
   const [commenterRatings, setCommenterRatings] = useState<Record<string, number>>({});
 
-  const fetchCommenterRatings = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('work_ratings')
-        .select('user_id, rating')
-        .eq('work_id', workId);
-      
-      if (!error && data) {
-        const ratingMap: Record<string, number> = {};
-        data.forEach((r) => {
-          ratingMap[r.user_id] = r.rating;
-        });
-        setCommenterRatings(ratingMap);
-      }
-    } catch (err) {
-      console.error('Error fetching commenter ratings:', err);
-    }
-  }, [workId]);
-
-  const fetchComments = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('work_comments')
-        .select('*')
-        .eq('work_id', workId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setComments(data || []);
-    } catch (err) {
-      console.error('Error fetching comments:', err);
-      setError('Gagal memuat komentar.');
-    } finally {
-      setLoading(false);
-    }
-  }, [workId]);
-
   useEffect(() => {
-    fetchCommenterRatings();
-    fetchComments();
-  }, [fetchCommenterRatings, fetchComments, ratingsVersion]);
+    // Re-runs when the album changes or a new rating lands; `ignore` drops the
+    // answer from a previous run so it can't overwrite a newer one.
+    let ignore = false;
+
+    loadCommenterRatings(workId).then((ratings) => {
+      if (!ignore && ratings) setCommenterRatings(ratings);
+    });
+
+    loadComments(workId)
+      .then((list) => {
+        if (!ignore) setComments(list);
+      })
+      .catch((err) => {
+        console.error('Error fetching comments:', err);
+        if (!ignore) setError('Gagal memuat komentar.');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [workId, ratingsVersion]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

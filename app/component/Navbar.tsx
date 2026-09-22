@@ -36,10 +36,13 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
     router.push('/');
   };
 
-  // Close menu on route change
-  useEffect(() => {
+  // Close the menu on route change. Adjusted during render rather than in an
+  // effect, so the drawer never paints one frame open on the new page.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setMenuOpen(false);
-  }, [pathname]);
+  }
 
   // Close menu on click outside
   useEffect(() => {
