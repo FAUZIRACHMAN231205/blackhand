@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { requestOtp } from '@/app/lib/otp';
+import { checkOtpIpLimit, clientIp } from '@/app/lib/otpIpLimit';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -10,6 +11,17 @@ export async function POST(request: NextRequest) {
 
     if (!email || typeof email !== 'string' || !email.includes('@')) {
       return NextResponse.json({ error: 'Valid email is required' }, { status: 400 });
+    }
+
+    const ipLimit = await checkOtpIpLimit(clientIp(request.headers));
+    if (!ipLimit.ok) {
+      const minutes = Math.ceil(ipLimit.retryAfterSeconds / 60);
+      return NextResponse.json(
+        {
+          error: `Too many code requests from your network. Please try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+        },
+        { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) } }
+      );
     }
 
     const result = await requestOtp(email);
