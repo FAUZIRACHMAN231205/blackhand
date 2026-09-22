@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
@@ -300,6 +300,42 @@ function FeedPost({
   );
 }
 
+const FEED_COLUMNS =
+  'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale';
+
+/**
+ * Works published in the last 30 days, newest first — or, when there are
+ * none, the latest 12 so the feed is never empty. An empty list on failure.
+ */
+async function loadFeedWorks(): Promise<Work[]> {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const { data, error } = await supabase
+      .from('works')
+      .select(FEED_COLUMNS)
+      .eq('is_published', true)
+      .gt('created_at', thirtyDaysAgo.toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) console.error('Error fetching works:', error);
+    if (!error && data && data.length > 0) return data;
+
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('works')
+      .select(FEED_COLUMNS)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+      .limit(12);
+
+    return !fallbackError && fallbackData ? fallbackData : [];
+  } catch (error) {
+    console.error('Error:', error);
+    return [];
+  }
+}
+
 // ─── Main Feed Page ────────────────────────────────────────────────────
 export default function ActivityFeed() {
   const { user, loading } = useAuth();
@@ -336,57 +372,19 @@ export default function ActivityFeed() {
     };
   }, [user]);
 
-  const fetchWorks = useCallback(async () => {
-    try {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const { data, error } = await supabase
-        .from('works')
-        .select(
-          'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale'
-        )
-        .eq('is_published', true)
-        .gt('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching works:', error);
-      }
-
-      // Fallback: if no recent works, get latest 12
-      if (error || !data || data.length === 0) {
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('works')
-          .select(
-            'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale'
-          )
-          .eq('is_published', true)
-          .order('created_at', { ascending: false })
-          .limit(12);
-
-        if (!fallbackError && fallbackData) {
-          setWorks(fallbackData);
-          setHasMore(fallbackData.length > POSTS_PER_LOAD);
-        } else {
-          setWorks([]);
-          setHasMore(false);
-        }
-      } else {
-        setWorks(data);
-        setHasMore(data.length > POSTS_PER_LOAD);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoadingWorks(false);
-    }
-  }, []);
-
   useEffect(() => {
     // Public feed: published works load regardless of auth state.
-    fetchWorks();
-  }, [fetchWorks]);
+    let ignore = false;
+    loadFeedWorks().then((list) => {
+      if (ignore) return;
+      setWorks(list);
+      setHasMore(list.length > POSTS_PER_LOAD);
+      setLoadingWorks(false);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // One aggregated request for every visible card's rating + comment count,
   // instead of two Supabase reads per FeedPost.

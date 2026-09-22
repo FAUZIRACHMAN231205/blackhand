@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Star, StarHalf, Loader2 } from 'lucide-react';
+import { Star, Loader2 } from 'lucide-react';
 
 interface RatingStarsProps {
   workId: string;
@@ -19,6 +19,37 @@ interface RatingStarsProps {
   stats?: { average: number; count: number } | null;
 }
 
+interface RatingSnapshot {
+  average: number;
+  count: number;
+  /** The viewer's own rating, 0 when they haven't rated (or aren't signed in). */
+  userRating: number;
+}
+
+/** Aggregate one work's ratings. Null on failure, so callers keep what they had. */
+async function loadRatingStats(workId: string, userId?: string): Promise<RatingSnapshot | null> {
+  try {
+    const { data, error } = await supabase
+      .from('work_ratings')
+      .select('rating, user_id')
+      .eq('work_id', workId);
+    if (error) throw error;
+
+    const rows = data ?? [];
+    if (rows.length === 0) return { average: 0, count: 0, userRating: 0 };
+
+    const sum = rows.reduce((acc, r) => acc + r.rating, 0);
+    return {
+      average: Number((sum / rows.length).toFixed(1)),
+      count: rows.length,
+      userRating: (userId && rows.find((r) => r.user_id === userId)?.rating) || 0,
+    };
+  } catch (err) {
+    console.error('Error fetching rating stats:', err);
+    return null;
+  }
+}
+
 export default function RatingStars({
   workId,
   userId,
@@ -28,11 +59,17 @@ export default function RatingStars({
   onRate,
   stats,
 }: RatingStarsProps) {
-  const [avgRating, setAvgRating] = useState<number>(0);
-  const [totalRatings, setTotalRatings] = useState<number>(0);
-  const [userRating, setUserRating] = useState<number>(0);
+  // List/grid views pass pre-aggregated `stats` (even null); those are used as
+  // they are, read straight from props. Only a standalone widget loads its own.
+  const provided = stats !== undefined;
+  const [fetched, setFetched] = useState<RatingSnapshot>({ average: 0, count: 0, userRating: 0 });
+  const [fetching, setFetching] = useState<boolean>(true);
+  const avgRating = provided ? (stats?.average ?? 0) : fetched.average;
+  const totalRatings = provided ? (stats?.count ?? 0) : fetched.count;
+  const userRating = fetched.userRating;
+  const loading = !provided && fetching;
+
   const [hoverRating, setHoverRating] = useState<number | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   // States for inline comment box
@@ -41,52 +78,19 @@ export default function RatingStars({
   const [pendingRating, setPendingRating] = useState<number>(0);
   const [submittingComment, setSubmittingComment] = useState<boolean>(false);
 
-  const fetchRatingStats = useCallback(async () => {
-    try {
-      // Fetch all ratings for this work
-      const { data, error } = await supabase
-        .from('work_ratings')
-        .select('rating, user_id')
-        .eq('work_id', workId);
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        const sum = data.reduce((acc, curr) => acc + curr.rating, 0);
-        setAvgRating(Number((sum / data.length).toFixed(1)));
-        setTotalRatings(data.length);
-
-        if (userId) {
-          const userVote = data.find((r) => r.user_id === userId);
-          if (userVote) {
-            setUserRating(userVote.rating);
-          } else {
-            setUserRating(0);
-          }
-        }
-      } else {
-        setAvgRating(0);
-        setTotalRatings(0);
-        setUserRating(0);
-      }
-    } catch (err) {
-      console.error('Error fetching rating stats:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [workId, userId]);
-
   useEffect(() => {
-    // When the parent supplies pre-aggregated stats (list/grid views), use them
-    // and skip the per-card fetch entirely.
-    if (stats !== undefined) {
-      setAvgRating(stats?.average ?? 0);
-      setTotalRatings(stats?.count ?? 0);
-      setLoading(false);
-      return;
-    }
-    fetchRatingStats();
-  }, [stats, fetchRatingStats]);
+    if (provided) return;
+    // `ignore` drops a stale answer if the work or viewer changes mid-request.
+    let ignore = false;
+    loadRatingStats(workId, userId).then((snapshot) => {
+      if (ignore) return;
+      if (snapshot) setFetched(snapshot);
+      setFetching(false);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [provided, workId, userId]);
 
   const handleRate = async (ratingValue: number) => {
     if (readOnly || !userId || submitting) return;
@@ -100,9 +104,10 @@ export default function RatingStars({
       });
       if (!res.ok) throw new Error(await res.text());
 
-      setUserRating(ratingValue);
+      setFetched((prev) => ({ ...prev, userRating: ratingValue }));
       // Refresh statistics
-      await fetchRatingStats();
+      const snapshot = await loadRatingStats(workId, userId);
+      if (snapshot) setFetched(snapshot);
 
       // Show comment drawer inline with pending details
       setPendingRating(ratingValue);
