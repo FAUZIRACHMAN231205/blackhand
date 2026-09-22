@@ -108,6 +108,7 @@ In the **Supabase → SQL Editor**, run the migrations in `docs/` **in this orde
 3. `docs/DATABASE_SCHEMA_CUSTOM_AUTH.sql` — `users` + `otp_codes`; swaps foreign keys to the custom `users` table and reworks RLS for the custom-auth model
 4. `docs/DATABASE_MIGRATION_ADD_ROLE.sql` — adds the `role` column and promotes the admin account(s)
 5. `docs/DATABASE_MIGRATION_PAYMENTS.sql` — album pricing, the `orders` table, and the private `work-originals` bucket
+6. `docs/DATABASE_MIGRATION_OTP_IP_LIMIT.sql` — per-network limit on sign-in code requests
 
 Then create a **public Storage bucket** named `work-images`. It only ever holds
 previews — the cover image clean, the rest blurred. Full-resolution files live in the
@@ -173,6 +174,7 @@ Open [http://localhost:3000](http://localhost:3000).
 **API (route handlers under `app/api/`)**
 
 - `auth/otp/request`, `auth/otp/verify`, `auth/google`, `auth/google/callback`, `auth/logout`, `auth/me`
+  - Code requests are limited per email (one every 3 minutes) and per network (5 per 10 minutes, 20 per day; `app/lib/otpIpLimit.ts`). The network is read from `x-real-ip` / `x-forwarded-for`, which is only trustworthy behind a proxy that sets them (Vercel, Nginx, Cloudflare). Addresses are stored as an HMAC keyed with `OTP_PEPPER`, never in the clear.
 - `profile` — update the signed-in user's profile
 - `works/[id]/ratings`, `works/[id]/comments`, `works/ratings/summary` (aggregated list stats), `comments/[id]`
 - `works/[id]/purchase` — open a Midtrans Snap transaction for an album (signed-in)
