@@ -24,6 +24,9 @@ const augustus = localFont({
   variable: "--font-augustus-custom",
   weight: "400",
   display: "swap",
+  // Only artwork descriptions on detail pages use it; the browser fetches it
+  // there on demand instead of every page preloading ~80 KB it never draws.
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -43,9 +46,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      {/* Gabungkan variabel font di sini */}
-      <body className={`${cormorant.variable} ${poppins.variable} ${augustus.variable} antialiased bg-white dark:bg-slate-950 text-black dark:text-white transition-colors duration-300`}>
+    // The font variables must live on <html>: Tailwind resolves its theme
+    // (--font-serif: var(--font-cormorant), …) on :root, and a variable that
+    // only exists further down on <body> leaves every font-* utility invalid,
+    // silently falling back to the system font.
+    <html lang="en" className={`${cormorant.variable} ${poppins.variable} ${augustus.variable}`}>
+      <body className="antialiased bg-white dark:bg-slate-950 text-black dark:text-white transition-colors duration-300">
         <ErrorBoundary>
           <ThemeProvider>
             <ToastProvider>
