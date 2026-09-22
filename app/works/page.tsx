@@ -118,8 +118,8 @@ function FeedPost({
       }
     }
 
-    // Owners get the real images instead of blurred previews. Signed URLs
-    // expire, so they're only fetched on demand, when the gallery opens.
+    // Owners get the real images instead of blurred previews, fetched only
+    // when the gallery is opened.
     if (owned && Object.keys(originalUrls).length === 0) {
       try {
         const res = await fetch(`/api/works/${work.id}/album`);
