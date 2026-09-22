@@ -117,7 +117,7 @@ export default function WorkDetail() {
   const currentImage = images[currentImageIndex];
 
   // The cover stays clean as a sample; every other preview is stored blurred,
-  // whether or not the album is on sale, until a buyer gets the signed originals.
+  // whether or not the album is on sale, until a buyer gets the originals.
   const forSale = Boolean(work.is_for_sale && work.price_idr);
   const isLocked = (img: WorkImage) => !owned && !img.is_featured;
   const lockHint = forSale

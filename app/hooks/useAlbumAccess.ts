@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /**
- * Whether the current visitor owns an album, and — when they do — the signed
+ * Whether the current visitor owns an album, and — when they do — the stable
  * full-resolution URLs to show instead of the blurred previews.
  *
  * Ownership is always decided by the server; this hook never infers it from
