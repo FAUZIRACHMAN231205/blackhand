@@ -8,7 +8,7 @@ import Navbar from '../../component/Navbar';
 import { LoadingSpinner } from '../../component/LoadingStates';
 import ConfirmDialog from '../../component/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
-import { Plus, Edit2, Trash2, ChevronLeft, ImageOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, ChevronLeft, ImageOff, ChevronDown, Loader2 } from 'lucide-react';
 import { formatIdr } from '../../lib/categories';
 import Link from 'next/link';
 
@@ -23,12 +23,31 @@ interface Work {
   is_for_sale: boolean;
 }
 
+/** One page of the signed-in admin's works. */
+async function fetchWorksPage(page: number): Promise<{ works: Work[]; total: number; hasMore: boolean }> {
+  try {
+    const res = await fetch(`/api/admin/works?page=${page}`);
+    if (!res.ok) {
+      console.error('Error fetching works:', await res.text());
+      return { works: [], total: 0, hasMore: false };
+    }
+    return await res.json();
+  } catch (error) {
+    console.error('Error:', error);
+    return { works: [], total: 0, hasMore: false };
+  }
+}
+
 export default function AdminWorks() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
   const [works, setWorks] = useState<Work[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loadingWorks, setLoadingWorks] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Work | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -43,29 +62,27 @@ export default function AdminWorks() {
     }
   }, [user, loading, router]);
 
-  const fetchWorks = async () => {
-    try {
-      const res = await fetch('/api/admin/works');
-      if (!res.ok) {
-        console.error('Error fetching works:', await res.text());
-        return;
-      }
-      const data = await res.json();
-      setWorks(data.works || []);
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoadingWorks(false);
-    }
-  };
-
   useEffect(() => {
-    // Fetch works dari database
-    if (user && isAdmin(user)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchWorks();
-    }
-  }, [user]);
+    if (!user || !isAdmin(user)) return;
+
+    let ignore = false;
+    fetchWorksPage(page).then((result) => {
+      if (ignore) return;
+      setWorks((prev) => (page === 0 ? result.works : [...prev, ...result.works]));
+      setTotal(result.total);
+      setHasMore(result.hasMore);
+      setLoadingWorks(false);
+      setLoadingMore(false);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [user, page]);
+
+  const loadMore = () => {
+    setLoadingMore(true);
+    setPage((prev) => prev + 1);
+  };
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
@@ -81,6 +98,7 @@ export default function AdminWorks() {
       }
 
       setWorks((prev) => prev.filter((w) => w.id !== pendingDelete.id));
+      setTotal((prev) => Math.max(0, prev - 1));
       showToast({ type: 'success', message: 'Work deleted successfully' });
     } catch (error) {
       console.error('Error:', error);
@@ -120,7 +138,7 @@ export default function AdminWorks() {
                 Manage Works
               </h1>
               <p className="font-sans text-sm text-black/60 dark:text-white/60">
-                Total: <span className="text-black dark:text-white font-medium">{works.length}</span> artworks
+                Total: <span className="text-black dark:text-white font-medium">{total}</span> artworks
               </p>
             </div>
             <Link
@@ -205,6 +223,19 @@ export default function AdminWorks() {
                   </div>
                 </div>
               ))}
+
+              {hasMore && (
+                <div className="flex justify-center pt-6">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="flex min-h-[48px] items-center gap-2 rounded-xl border border-black/10 bg-black/[0.03] px-8 font-sans text-[11px] font-black uppercase tracking-[0.2em] text-black transition-colors hover:bg-black/5 disabled:cursor-wait disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/10"
+                  >
+                    {loadingMore ? <Loader2 size={15} className="animate-spin" /> : <ChevronDown size={15} />}
+                    {loadingMore ? 'Loading...' : `Load more (${works.length}/${total})`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

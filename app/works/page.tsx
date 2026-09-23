@@ -24,9 +24,8 @@ import RatingStars from '../component/RatingStars';
 import { LoadingSpinner, SkeletonCard } from '../component/LoadingStates';
 import LockedOverlay from '../component/LockedOverlay';
 import { formatIdr } from '../lib/categories';
+import { FEED_PAGE_SIZE, pageRange, splitPage } from '../lib/pagination';
 import type { Work, WorkImage } from '../types';
-
-const POSTS_PER_LOAD = 6;
 
 // ─── Relative timestamp ────────────────────────────────────────────────
 function timeAgo(dateStr: string): string {
@@ -303,36 +302,38 @@ function FeedPost({
 const FEED_COLUMNS =
   'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale';
 
-/**
- * Works published in the last 30 days, newest first — or, when there are
- * none, the latest 12 so the feed is never empty. An empty list on failure.
- */
-async function loadFeedWorks(): Promise<Work[]> {
+type FeedStats = Record<string, { average: number; count: number; comments: number } | null>;
+
+/** One page of published works, newest first. An empty page on failure. */
+async function loadFeedWorks(page: number) {
+  const [from, to] = pageRange(page, FEED_PAGE_SIZE);
+  const { data, error } = await supabase
+    .from('works')
+    .select(FEED_COLUMNS)
+    .eq('is_published', true)
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error('Error fetching works:', error);
+    return { items: [] as Work[], hasMore: false };
+  }
+  return splitPage((data ?? []) as Work[], FEED_PAGE_SIZE);
+}
+
+/** Ratings and comment counts for a page of cards, in one request. */
+async function loadFeedStats(ids: string[]): Promise<FeedStats> {
+  // Works nobody has rated or commented on are absent from the response; seed
+  // them as null so they count as fetched.
+  const seeded: FeedStats = Object.fromEntries(ids.map((id) => [id, null]));
   try {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const { data, error } = await supabase
-      .from('works')
-      .select(FEED_COLUMNS)
-      .eq('is_published', true)
-      .gt('created_at', thirtyDaysAgo.toISOString())
-      .order('created_at', { ascending: false });
-
-    if (error) console.error('Error fetching works:', error);
-    if (!error && data && data.length > 0) return data;
-
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from('works')
-      .select(FEED_COLUMNS)
-      .eq('is_published', true)
-      .order('created_at', { ascending: false })
-      .limit(12);
-
-    return !fallbackError && fallbackData ? fallbackData : [];
-  } catch (error) {
-    console.error('Error:', error);
-    return [];
+    const res = await fetch(`/api/works/ratings/summary?ids=${encodeURIComponent(ids.join(','))}`);
+    if (!res.ok) return seeded;
+    const { stats } = await res.json();
+    return { ...seeded, ...(stats ?? {}) };
+  } catch (err) {
+    console.error('Error fetching rating summary:', err);
+    return seeded;
   }
 }
 
@@ -342,9 +343,10 @@ export default function ActivityFeed() {
   const router = useRouter();
   const [works, setWorks] = useState<Work[]>([]);
   const [loadingWorks, setLoadingWorks] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(POSTS_PER_LOAD);
-  const [hasMore, setHasMore] = useState(true);
-  const [statsMap, setStatsMap] = useState<Record<string, { average: number; count: number; comments: number }>>({});
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [statsMap, setStatsMap] = useState<FeedStats>({});
   const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
   const [authOpen, setAuthOpen] = useState(false);
 
@@ -375,45 +377,36 @@ export default function ActivityFeed() {
   useEffect(() => {
     // Public feed: published works load regardless of auth state.
     let ignore = false;
-    loadFeedWorks().then((list) => {
+    loadFeedWorks(page).then((result) => {
       if (ignore) return;
-      setWorks(list);
-      setHasMore(list.length > POSTS_PER_LOAD);
+      setWorks((prev) => (page === 0 ? result.items : [...prev, ...result.items]));
+      setHasMore(result.hasMore);
       setLoadingWorks(false);
+      setLoadingMore(false);
     });
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [page]);
 
-  // One aggregated request for every visible card's rating + comment count,
-  // instead of two Supabase reads per FeedPost.
+  // One aggregated request per page of cards, instead of two Supabase reads
+  // per FeedPost — and only for cards we haven't asked about yet.
   useEffect(() => {
-    if (works.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const ids = works.map((w) => w.id).join(',');
-        const res = await fetch(`/api/works/ratings/summary?ids=${encodeURIComponent(ids)}`);
-        if (res.ok && !cancelled) {
-          const { stats } = await res.json();
-          setStatsMap(stats || {});
-        }
-      } catch (err) {
-        console.error('Error fetching rating summary:', err);
-      }
-    })();
+    const missing = works.map((w) => w.id).filter((id) => !(id in statsMap));
+    if (missing.length === 0) return;
+
+    let ignore = false;
+    loadFeedStats(missing).then((stats) => {
+      if (!ignore) setStatsMap((prev) => ({ ...prev, ...stats }));
+    });
     return () => {
-      cancelled = true;
+      ignore = true;
     };
-  }, [works]);
+  }, [works, statsMap]);
 
   const handleLoadMore = () => {
-    const newCount = visibleCount + POSTS_PER_LOAD;
-    setVisibleCount(newCount);
-    if (newCount >= works.length) {
-      setHasMore(false);
-    }
+    setLoadingMore(true);
+    setPage((prev) => prev + 1);
   };
 
   if (loading) {
@@ -421,10 +414,9 @@ export default function ActivityFeed() {
   }
 
   // ── Group works by date ─────────────────────────────────────────────
-  const visibleWorks = works.slice(0, visibleCount);
   const groupedWorks: { label: string; items: Work[] }[] = [];
 
-  visibleWorks.forEach((work) => {
+  works.forEach((work) => {
     const label = getDateGroup(work.created_at);
     const existing = groupedWorks.find((g) => g.label === label);
     if (existing) {
@@ -552,10 +544,11 @@ export default function ActivityFeed() {
                 <div className="flex justify-center pt-4 pb-8">
                   <button
                     onClick={handleLoadMore}
-                    className="flex items-center gap-2 px-8 py-3 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/40 text-slate-700 dark:text-slate-300 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700/60 transition-all font-sans text-sm font-bold"
+                    disabled={loadingMore}
+                    className="flex min-h-[48px] items-center gap-2 px-8 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/40 text-slate-700 dark:text-slate-300 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700/60 transition-all font-sans text-sm font-bold disabled:cursor-wait disabled:opacity-60"
                   >
-                    <ChevronDown size={16} />
-                    Muat Lebih Banyak
+                    {loadingMore ? <Loader2 size={16} className="animate-spin" /> : <ChevronDown size={16} />}
+                    {loadingMore ? 'Memuat...' : 'Muat Lebih Banyak'}
                   </button>
                 </div>
               )}
@@ -565,8 +558,8 @@ export default function ActivityFeed() {
           {/* Footer */}
           <div className="mt-12 pt-8 border-t border-black/5 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-sans text-slate-400 dark:text-slate-500">
             <span>
-              Menampilkan {Math.min(visibleCount, works.length)} dari{' '}
-              {works.length} update terbaru.
+              Menampilkan {works.length} update terbaru
+              {hasMore ? ', masih ada lagi.' : '.'}
             </span>
             <Link
               href="/gallery"

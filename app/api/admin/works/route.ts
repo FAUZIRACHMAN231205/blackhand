@@ -2,23 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/lib/apiAuth';
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin';
 import { WORK_CATEGORIES, isValidCategory, validatePricing } from '@/app/lib/categories';
+import { ADMIN_WORKS_PAGE_SIZE } from '@/app/lib/pagination';
 
-export async function GET() {
+/** One page of this admin's works, newest first. `?page=` is 0-based. */
+export async function GET(request: NextRequest) {
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
 
-  const { data, error } = await supabaseAdmin
+  const page = Math.max(0, Number(request.nextUrl.searchParams.get('page') ?? 0) || 0);
+  const from = page * ADMIN_WORKS_PAGE_SIZE;
+
+  // An exact count here, unlike the public lists: the admin header shows a total.
+  const { data, error, count } = await supabaseAdmin
     .from('works')
-    .select('id, title, category, is_published, is_featured, created_at, price_idr, is_for_sale')
+    .select('id, title, category, is_published, is_featured, created_at, price_idr, is_for_sale', {
+      count: 'exact',
+    })
     .eq('created_by', auth.user.id)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(from, from + ADMIN_WORKS_PAGE_SIZE - 1);
 
   if (error) {
     console.error('Error fetching works:', error);
     return NextResponse.json({ error: 'Failed to fetch works' }, { status: 500 });
   }
 
-  return NextResponse.json({ works: data ?? [] });
+  const works = data ?? [];
+  return NextResponse.json({
+    works,
+    total: count ?? works.length,
+    hasMore: from + works.length < (count ?? 0),
+  });
 }
 
 export async function POST(request: NextRequest) {

@@ -6,75 +6,159 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
 import AuthModal from '../component/AuthModal';
-import { ChevronLeft, Star, ImageOff, Tag } from 'lucide-react';
+import { ChevronLeft, Star, ImageOff, Tag, ChevronDown, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import RatingStars from '../component/RatingStars';
 import { LoadingSpinner, SkeletonGrid } from '../component/LoadingStates';
 import type { Work } from '../types';
 import { WORK_CATEGORIES, formatIdr } from '../lib/categories';
+import { GALLERY_PAGE_SIZE, pageRange, splitPage } from '../lib/pagination';
+
+const WORK_COLUMNS =
+  'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale';
+
+type RatingStats = Record<string, { average: number; count: number } | null>;
+
+/** One page of published works, newest first, optionally narrowed to a category. */
+async function loadWorksPage(category: string | null, page: number) {
+  const [from, to] = pageRange(page, GALLERY_PAGE_SIZE);
+  let query = supabase.from('works').select(WORK_COLUMNS).eq('is_published', true);
+  if (category) query = query.eq('category', category);
+
+  const { data, error } = await query.order('created_at', { ascending: false }).range(from, to);
+  if (error) {
+    console.error('Error fetching works:', error);
+    return { items: [] as Work[], hasMore: false };
+  }
+  return splitPage((data ?? []) as Work[], GALLERY_PAGE_SIZE);
+}
+
+/**
+ * The featured showcase is its own small query: paging must not decide whether
+ * the highlighted work happens to be on screen.
+ */
+async function loadFeaturedWorks(): Promise<Work[]> {
+  const { data, error } = await supabase
+    .from('works')
+    .select(WORK_COLUMNS)
+    .eq('is_published', true)
+    .eq('is_featured', true)
+    .order('created_at', { ascending: false })
+    .limit(3);
+
+  if (error) {
+    console.error('Error fetching featured works:', error);
+    return [];
+  }
+  return (data ?? []) as Work[];
+}
+
+/** How many published works exist in total, for the stats strip. */
+async function loadPublishedCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from('works')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_published', true);
+
+  if (error) {
+    console.error('Error counting works:', error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+/** Ratings and comment counts for a page of cards, in one request. */
+async function loadRatingStats(ids: string[]): Promise<RatingStats> {
+  // Works with no ratings are absent from the response; seed them as null so
+  // they count as fetched and aren't asked for again on the next page.
+  const seeded: RatingStats = Object.fromEntries(ids.map((id) => [id, null]));
+  try {
+    const res = await fetch(`/api/works/ratings/summary?ids=${encodeURIComponent(ids.join(','))}`);
+    if (!res.ok) return seeded;
+    const { stats } = await res.json();
+    return { ...seeded, ...(stats ?? {}) };
+  } catch (err) {
+    console.error('Error fetching rating summary:', err);
+    return seeded;
+  }
+}
 
 export default function Gallery() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [works, setWorks] = useState<Work[]>([]);
+  const [featuredWorks, setFeaturedWorks] = useState<Work[]>([]);
+  const [publishedCount, setPublishedCount] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loadingWorks, setLoadingWorks] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [ratingStats, setRatingStats] = useState<Record<string, { average: number; count: number }>>({});
+  const [ratingStats, setRatingStats] = useState<RatingStats>({});
   const [authOpen, setAuthOpen] = useState(false);
 
   const CATEGORIES = WORK_CATEGORIES;
 
-  const fetchWorks = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('works')
-        .select('id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale')
-        .eq('is_published', true)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching works:', error);
-        return;
-      }
-
-      const list = data || [];
-      setWorks(list);
-
-      // One aggregated request for all cards instead of one query per card.
-      if (list.length > 0) {
-        try {
-          const ids = list.map((w) => w.id).join(',');
-          const res = await fetch(`/api/works/ratings/summary?ids=${encodeURIComponent(ids)}`);
-          if (res.ok) {
-            const { stats } = await res.json();
-            setRatingStats(stats || {});
-          }
-        } catch (statsError) {
-          console.error('Error fetching rating summary:', statsError);
-        }
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
+  useEffect(() => {
+    // Runs for the first page and again for each "load more" or category change;
+    // `ignore` drops a page that arrives after the category moved on.
+    let ignore = false;
+    loadWorksPage(selectedCategory, page).then((result) => {
+      if (ignore) return;
+      setWorks((prev) => (page === 0 ? result.items : [...prev, ...result.items]));
+      setHasMore(result.hasMore);
       setLoadingWorks(false);
-    }
-  };
+      setLoadingMore(false);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [selectedCategory, page]);
 
   useEffect(() => {
-    // Public page: published works load regardless of auth state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchWorks();
+    let ignore = false;
+    loadFeaturedWorks().then((list) => {
+      if (!ignore) setFeaturedWorks(list);
+    });
+    loadPublishedCount().then((count) => {
+      if (!ignore) setPublishedCount(count);
+    });
+    return () => {
+      ignore = true;
+    };
   }, []);
+
+  useEffect(() => {
+    // Only ask about cards we haven't asked about yet.
+    const missing = works.map((w) => w.id).filter((id) => !(id in ratingStats));
+    if (missing.length === 0) return;
+
+    let ignore = false;
+    loadRatingStats(missing).then((stats) => {
+      if (!ignore) setRatingStats((prev) => ({ ...prev, ...stats }));
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [works, ratingStats]);
+
+  const showCategory = (category: string | null) => {
+    if (category === selectedCategory) return;
+    setSelectedCategory(category);
+    setWorks([]);
+    setPage(0);
+    setHasMore(false);
+    setLoadingWorks(true);
+  };
+
+  const loadMore = () => {
+    setLoadingMore(true);
+    setPage((prev) => prev + 1);
+  };
 
   if (loading) {
     return <LoadingSpinner />;
   }
-
-  const filteredWorks = selectedCategory
-    ? works.filter(work => work.category === selectedCategory)
-    : works;
-
-  const featuredWorks = works.filter(w => w.is_featured);
 
   return (
     <>
@@ -141,7 +225,7 @@ export default function Gallery() {
             </h3>
             <div className="flex flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible hide-scrollbar pb-2 md:pb-0 gap-x-6 md:gap-x-8 px-1">
               <button
-                onClick={() => setSelectedCategory(null)}
+                onClick={() => showCategory(null)}
                 className={`relative py-2 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
                   selectedCategory === null
                     ? 'text-black dark:text-white'
@@ -156,7 +240,7 @@ export default function Gallery() {
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+                  onClick={() => showCategory(cat)}
                   className={`relative py-2 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
                     selectedCategory === cat
                       ? 'text-black dark:text-white'
@@ -175,7 +259,7 @@ export default function Gallery() {
           {/* Works Grid */}
           {loadingWorks ? (
             <SkeletonGrid count={6} />
-          ) : filteredWorks.length === 0 ? (
+          ) : works.length === 0 ? (
             <div className="bg-black/[0.02] dark:bg-slate-900/40 border border-dashed border-black/10 dark:border-white/10 rounded-2xl p-12 text-center">
               <div className="mb-4">
                 <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
@@ -189,7 +273,7 @@ export default function Gallery() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredWorks.map((work) => (
+              {works.map((work) => (
                 <Link key={work.id} href={`/gallery/${work.id}`} className="group">
                   <div className="space-y-4">
                     <div className="relative overflow-hidden rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 group-hover:border-violet-500/30 transition-colors">
@@ -227,11 +311,24 @@ export default function Gallery() {
             </div>
           )}
 
+          {hasMore && !loadingWorks && (
+            <div className="flex justify-center pt-10">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-black/10 bg-black/[0.03] px-8 font-sans text-sm font-bold text-black transition-colors hover:bg-black/5 disabled:cursor-wait disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/10"
+              >
+                {loadingMore ? <Loader2 size={16} className="animate-spin" /> : <ChevronDown size={16} />}
+                {loadingMore ? 'Memuat...' : 'Muat Lebih Banyak'}
+              </button>
+            </div>
+          )}
+
           {/* Stats */}
           <div className="mt-10 sm:mt-16 pt-6 sm:pt-8 border-t border-black/10 dark:border-white/10">
             <div className="grid grid-cols-3 gap-3 sm:gap-6">
               <div>
-                <p className="font-serif text-2xl sm:text-3xl italic text-black dark:text-white">{works.length}</p>
+                <p className="font-serif text-2xl sm:text-3xl italic text-black dark:text-white">{publishedCount ?? works.length}</p>
                 <p className="font-sans text-[10px] sm:text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-0.5 sm:mt-1">Total Works</p>
               </div>
               <div>
