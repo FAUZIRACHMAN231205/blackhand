@@ -37,7 +37,6 @@ npm run test:coverage
 ```
 __tests__/
 ├── ErrorBoundary.test.tsx    # Tests for error boundary
-├── StatsCard.test.tsx        # Tests for stats card component
 ├── LoadingStates.test.tsx    # Tests for loading components
 └── useAuth.test.tsx          # Tests for auth hook
 ```
@@ -59,23 +58,7 @@ Tests the error boundary component:
 npm test -- ErrorBoundary.test
 ```
 
-### 2. StatsCard.test.tsx
-
-Tests the StatsCard component:
-
-- Renders title and value
-- Displays optional description
-- Renders icons correctly
-- Applies custom classes
-- Handles both string and numeric values
-
-**Run specific test:**
-
-```bash
-npm test -- StatsCard.test
-```
-
-### 3. LoadingStates.test.tsx
+### 2. LoadingStates.test.tsx
 
 Tests all loading state components:
 
@@ -90,7 +73,7 @@ Tests all loading state components:
 npm test -- LoadingStates.test
 ```
 
-### 4. useAuth.test.tsx
+### 3. useAuth.test.tsx
 
 Tests the useAuth custom hook:
 
