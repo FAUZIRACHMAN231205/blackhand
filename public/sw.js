@@ -12,7 +12,7 @@
  *
  * Bump VERSION whenever this file or offline.html changes.
  */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const STATIC_CACHE = `blackhand-static-${VERSION}`;
 const OFFLINE_CACHE = `blackhand-offline-${VERSION}`;
 const OFFLINE_URL = '/offline.html';

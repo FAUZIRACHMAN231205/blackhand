@@ -6,6 +6,19 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)" />
     <title>Offline · Blackhand</title>
+    <script>
+      // Honour the theme chosen in the app (same key as app/lib/theme.ts),
+      // falling back to the device setting via the media query below.
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+            m.setAttribute('content', t === 'dark' ? '#020617' : '#ffffff');
+          });
+        }
+      } catch (e) {}
+    </script>
     <style>
       :root {
         --bg: #ffffff;
@@ -13,15 +26,25 @@
         --muted: rgba(0, 0, 0, 0.6);
         --button-bg: #000000;
         --button-fg: #ffffff;
+        color-scheme: light;
       }
       @media (prefers-color-scheme: dark) {
-        :root {
+        :root:not([data-theme='light']) {
           --bg: #020617;
           --fg: #ffffff;
           --muted: rgba(255, 255, 255, 0.6);
           --button-bg: #ffffff;
           --button-fg: #000000;
+          color-scheme: dark;
         }
+      }
+      :root[data-theme='dark'] {
+        --bg: #020617;
+        --fg: #ffffff;
+        --muted: rgba(255, 255, 255, 0.6);
+        --button-bg: #ffffff;
+        --button-fg: #000000;
+        color-scheme: dark;
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; height: 100%; }

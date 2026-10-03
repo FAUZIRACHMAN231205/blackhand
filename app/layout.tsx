@@ -5,6 +5,7 @@ import "./globals.css";
 import ErrorBoundary from "./component/ErrorBoundary";
 import InstallPrompt from "./component/InstallPrompt";
 import ServiceWorkerRegister from "./component/ServiceWorkerRegister";
+import { THEME_INIT_SCRIPT } from "./lib/theme";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
 
@@ -63,7 +64,17 @@ export default function RootLayout({
     // (--font-serif: var(--font-cormorant), …) on :root, and a variable that
     // only exists further down on <body> leaves every font-* utility invalid,
     // silently falling back to the system font.
-    <html lang="en" className={`${cormorant.variable} ${poppins.variable} ${augustus.variable}`}>
+    // suppressHydrationWarning: the theme script below adds `dark` and a
+    // color-scheme to <html> before React hydrates, on purpose.
+    <html
+      lang="en"
+      className={`${cormorant.variable} ${poppins.variable} ${augustus.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Must run before the first paint, or dark-mode visitors see a light flash. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="antialiased bg-white dark:bg-slate-950 text-black dark:text-white transition-colors duration-300">
         <ErrorBoundary>
           <ThemeProvider>
