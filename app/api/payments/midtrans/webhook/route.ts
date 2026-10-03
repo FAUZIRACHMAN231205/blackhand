@@ -4,7 +4,18 @@ import {
   verifyNotificationSignature,
   mapTransactionStatus,
   isMidtransConfigured,
+  orderKind,
 } from '@/app/lib/midtrans';
+
+/** Where each kind of order lives, what it cost, and which function applies a notification. */
+const ORDER_TABLES = {
+  work: { table: 'orders', amountColumn: 'amount_idr', apply: 'apply_work_order_notification' },
+  product: {
+    table: 'product_orders',
+    amountColumn: 'total_idr',
+    apply: 'apply_product_order_notification',
+  },
+} as const;
 
 /**
  * Midtrans payment notification — the authoritative source of payment status.
@@ -13,6 +24,9 @@ import {
  *
  * Deliberately unauthenticated: Midtrans cannot log in. Trust comes from the
  * sha512 signature, which only someone holding our server key can produce.
+ *
+ * The state change itself (a work becoming sold, stock being returned, …) runs
+ * in one database function per order kind, so it is atomic and idempotent.
  */
 export async function POST(request: NextRequest) {
   // Distinguish "we aren't set up" from "this looks forged" — otherwise a
@@ -45,10 +59,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
+  const kind = orderKind(n.order_id);
+  if (!kind) {
+    console.warn('Midtrans notification for an unrecognised order id:', n.order_id);
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+  }
+  const { table, amountColumn, apply } = ORDER_TABLES[kind];
+
   const { data: order } = await supabaseAdmin
-    .from('orders')
-    .select('id, status, amount_idr, paid_at')
-    .eq('provider_order_id', n.order_id)
+    .from(table)
+    .select(`id, ${amountColumn}`)
+    .eq('provider_order_id', n.order_id as string)
     .maybeSingle();
 
   if (!order) {
@@ -56,36 +77,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  // The amount must match what we charged; never grant access off a mismatch.
+  const row = order as unknown as Record<string, unknown> & { id: string };
+
+  // The amount must match what we charged; never grant anything off a mismatch.
   const gross = Math.round(Number(n.gross_amount));
-  if (!Number.isFinite(gross) || gross !== order.amount_idr) {
-    console.error('Amount mismatch for order', n.order_id, gross, 'vs', order.amount_idr);
+  if (!Number.isFinite(gross) || gross !== row[amountColumn]) {
+    console.error('Amount mismatch for order', n.order_id, gross, 'vs', row[amountColumn]);
     return NextResponse.json({ error: 'Amount mismatch' }, { status: 400 });
   }
 
   const status = mapTransactionStatus(n.transaction_status, n.fraud_status);
 
-  // Notifications can arrive repeatedly and out of order: never take away a
-  // paid album except through an explicit refund.
-  if (order.status === 'paid' && status !== 'refunded') {
-    return NextResponse.json({ received: true, unchanged: true });
-  }
-
-  const { error } = await supabaseAdmin
-    .from('orders')
-    .update({
-      status,
-      provider_transaction_id: n.transaction_id ?? null,
-      payment_type: n.payment_type ?? null,
-      raw_notification: notification,
-      paid_at: status === 'paid' ? order.paid_at ?? new Date().toISOString() : order.paid_at,
-    })
-    .eq('id', order.id);
+  const { data: outcome, error } = await supabaseAdmin.rpc(apply, {
+    p_order_id: row.id,
+    p_status: status,
+    p_transaction_id: n.transaction_id ?? null,
+    p_payment_type: n.payment_type ?? null,
+    p_raw: notification,
+  });
 
   if (error) {
     console.error('Failed to apply Midtrans notification:', error);
     return NextResponse.json({ error: 'Update failed' }, { status: 500 });
   }
 
-  return NextResponse.json({ received: true, status });
+  if (outcome === 'needs_refund') {
+    // Paid, but the work was already sold (or the stock ran out). Nothing is
+    // granted; the admin panel lists it for a manual refund.
+    console.error('Payment could not be fulfilled and needs a refund:', n.order_id);
+  }
+
+  return NextResponse.json({ received: true, status, outcome });
 }

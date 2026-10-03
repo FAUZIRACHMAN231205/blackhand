@@ -4,13 +4,17 @@
 
 :root {
   /* 1. Properti standar CSS dipindahkan ke sini */
-  color-scheme: light dark;
+  /* Follow the app's theme, not the OS: scrollbars, form controls and date
+     pickers match the page even when the visitor overrides their device. */
+  color-scheme: light;
   background: white;
   color: black;
 }
 
 :root.dark {
-  background: #030712;
+  color-scheme: dark;
+  /* Same as the body's slate-950, so overscroll on phones shows no seam. */
+  background: #020617;
   color: white;
 }
 

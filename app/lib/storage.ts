@@ -5,15 +5,20 @@ import { supabaseAdmin } from './supabaseAdmin';
 export const WORK_IMAGES_BUCKET = 'work-images';
 /** Private bucket: full-resolution originals, reachable only via signed URLs. */
 export const WORK_ORIGINALS_BUCKET = 'work-originals';
+/** Public bucket: merchandise photos. */
+export const PRODUCT_IMAGES_BUCKET = 'product-images';
 
 /**
- * Derive the object path inside the public bucket from a Supabase public URL:
+ * Derive the object path inside a public bucket from a Supabase public URL:
  *   https://<project>.supabase.co/storage/v1/object/public/work-images/works/<id>/<file>
- * Returns null for anything that is not a URL in our bucket.
+ * Returns null for anything that is not a URL in that bucket.
  */
-export function storagePathFromPublicUrl(url: string | null | undefined): string | null {
+export function storagePathFromPublicUrl(
+  url: string | null | undefined,
+  bucket: string = WORK_IMAGES_BUCKET
+): string | null {
   if (!url) return null;
-  const marker = `/storage/v1/object/public/${WORK_IMAGES_BUCKET}/`;
+  const marker = `/storage/v1/object/public/${bucket}/`;
   const index = url.indexOf(marker);
   if (index === -1) return null;
   const path = url.slice(index + marker.length).split('?')[0];
@@ -26,7 +31,7 @@ export function storagePathFromPublicUrl(url: string | null | undefined): string
  * request the caller already committed.
  */
 export async function removeStoredImages(urls: (string | null | undefined)[]): Promise<void> {
-  const paths = urls.map(storagePathFromPublicUrl).filter((p): p is string => p !== null);
+  const paths = urls.map((url) => storagePathFromPublicUrl(url)).filter((p): p is string => p !== null);
   if (paths.length === 0) return;
 
   const { error } = await supabaseAdmin.storage.from(WORK_IMAGES_BUCKET).remove(paths);
@@ -86,6 +91,24 @@ export async function signOriginalUrl(path: string, expiresInSeconds = 300): Pro
 export function originalKey(workId: string, fileId: string, ext: string) {
   return `works/${workId}/${fileId}.${ext}`;
 }
-export function previewKey(workId: string, fileId: string, unlocked: boolean) {
-  return `works/${workId}/${fileId}-${unlocked ? 'preview' : 'locked'}.jpg`;
+export function previewKey(workId: string, fileId: string) {
+  return `works/${workId}/${fileId}-preview.jpg`;
+}
+
+/** Where an admin's raw product photo lands before it is resized. */
+export function productUploadKey(productId: string, fileId: string, ext: string) {
+  return `products/${productId}/${fileId}-upload.${ext}`;
+}
+/** The resized photo the shop actually shows. */
+export function productImageKey(productId: string, fileId: string) {
+  return `products/${productId}/${fileId}.jpg`;
+}
+
+/** Best-effort removal of product photos by their storage paths. */
+export async function removeProductImages(paths: (string | null | undefined)[]): Promise<void> {
+  const clean = paths.filter((p): p is string => !!p);
+  if (clean.length === 0) return;
+
+  const { error } = await supabaseAdmin.storage.from(PRODUCT_IMAGES_BUCKET).remove(clean);
+  if (error) console.error('Failed to remove product images:', clean, error);
 }

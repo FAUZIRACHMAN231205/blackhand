@@ -1,8 +1,8 @@
 # BLACKHAND
 
-A digital art portfolio and identity system — a gallery where visitors sign in to
-browse an artist's works, rate them, and leave comments, while admins manage the
-catalogue through a dedicated panel.
+A digital art portfolio and shop — a public gallery of an artist's works that
+visitors can rate, discuss and buy (each work goes to a single collector), plus a
+merchandise shop, all managed through a dedicated admin panel.
 
 Built on **Next.js 16 (App Router)** and **React 19** with a **custom, passwordless
 authentication** layer (email one-time codes + Google OAuth) on top of **Supabase**.
@@ -15,7 +15,10 @@ authentication** layer (email one-time codes + Google OAuth) on top of **Supabas
 - **Role-based admin** — a `role` column gates the admin panel; authorization is verified against the live database, not just the session token.
 - **Gallery & feed** — a grid `Collection` view and a chronological `Feed`, with per-work detail pages.
 - **Ratings & comments** — signed-in users rate works (1–5) and discuss them; list views use a single aggregated request instead of one query per card.
-- **Admin panel** — create/edit/delete works, upload up to 6 images per work (via Supabase Storage signed URLs), and set a featured image.
+- **Exclusive artwork sales** — every image is shown clean to everyone. A work for sale is sold to exactly **one** buyer: checkout reserves it for 30 minutes, and once paid it shows as *Terjual* — still viewable, but nobody else can buy or download it. The buyer downloads the full-resolution originals (JPG, ZIP, PDF, or straight to Google Drive).
+- **Merchandise shop** — `/shop` sells accessories and merchandise with stock, direct checkout via Midtrans, and a flat shipping fee the admin sets. Buyers follow their orders (and tracking numbers) under *Pesanan Saya*.
+- **Admin panel** — works (up to 6 images each, featured cover, price/availability), products (photos, stock, shipping fee), and *Orders & Sales*: ship merch orders with courier + tracking number, see who bought each work, and spot payments that need a refund.
+- **Installable (PWA)** — phones can add Blackhand to the home screen and open it full-screen like an app: web app manifest, brand icons generated from the project's Augustus font, a one-tap "Pasang" suggestion on Android/Chrome and Share → *Add to Home Screen* steps on iOS, and a branded offline page.
 - **Polished UX** — light/dark theme, responsive/mobile-first layouts, toasts, skeletons, and an error boundary.
 
 ## Tech stack
@@ -109,18 +112,34 @@ In the **Supabase → SQL Editor**, run the migrations in `docs/` **in this orde
 4. `docs/DATABASE_MIGRATION_ADD_ROLE.sql` — adds the `role` column and promotes the admin account(s)
 5. `docs/DATABASE_MIGRATION_PAYMENTS.sql` — album pricing, the `orders` table, and the private `work-originals` bucket
 6. `docs/DATABASE_MIGRATION_OTP_IP_LIMIT.sql` — per-network limit on sign-in code requests
+7. `docs/DATABASE_MIGRATION_EXCLUSIVE_SALES_AND_SHOP.sql` — one buyer per work (`sold_at`, reservations, `needs_refund`), the merchandise tables (`products`, `product_images`, `product_orders`, `shop_settings`), the public `product-images` bucket, and the database functions that make every sale and stock change atomic
 
 Then create a **public Storage bucket** named `work-images`. It only ever holds
-previews — the cover image clean, the rest blurred. Full-resolution files live in the
-**private** `work-originals` bucket and are handed out as short-lived signed URLs to
-buyers only.
+downscaled, clean previews (1200px). Full-resolution files live in the **private**
+`work-originals` bucket and are handed out as short-lived signed URLs to the buyer only.
 
 If you have works that were uploaded before step 5, move their originals into the
 private bucket and regenerate previews (idempotent, safe to re-run):
 
 ```bash
-node scripts/migrate-originals.mjs
+node --env-file=.env.local scripts/migrate-originals.mjs
 ```
+
+Works uploaded while the old paywall was in place have their non-cover previews stored
+blurred. After step 7, rebuild them clean (idempotent, safe to re-run):
+
+```bash
+node --env-file=.env.local scripts/unblur-previews.mjs
+```
+
+> **How one-buyer sales stay safe.** Reserving a work and marking it sold happen inside
+> Postgres functions (`claim_work_for_checkout`, `apply_work_order_notification`), and a
+> unique index allows only one paid order per work — so two buyers can never both own it.
+> A payment that still arrives for an already-sold work (or for merchandise that ran out)
+> is recorded as `needs_refund`, grants nothing, and is listed in the admin panel for a
+> manual refund in the Midtrans dashboard. Checkouts that are never paid lapse by
+> themselves: the work is freed and merchandise stock returned, even without the webhook
+> (which cannot reach a development machine).
 
 > The custom-auth migration (step 3) is what moves the project off Supabase Auth onto the
 > app's own `users` table — after it runs, sign-in is handled entirely by this app, and
@@ -166,10 +185,14 @@ Open [http://localhost:3000](http://localhost:3000).
 | `/dashboard` | User dashboard | Signed-in |
 | `/gallery`, `/gallery/[id]` | Collection grid + album detail (buy, ratings, comments) | Public — rating, commenting and buying ask you to sign in |
 | `/works`, `/works/[id]` | Activity feed + album detail | Public |
-| `/albums` | Album Saya — owned albums, pending payments, downloads | Signed-in |
+| `/shop`, `/shop/[id]` | Merchandise shop + product detail with checkout | Public — buying asks you to sign in |
+| `/albums` | Album Saya — owned works, pending payments, downloads | Signed-in |
+| `/orders` | Pesanan Saya — merchandise orders, status, tracking, resume payment | Signed-in |
 | `/settings` | Profile & session settings | Signed-in |
 | `/admin` | Admin dashboard | Admin |
 | `/admin/works`, `/admin/works/create`, `/admin/works/[id]/edit` | Manage / create / edit works | Admin |
+| `/admin/products`, `/admin/products/create`, `/admin/products/[id]/edit` | Manage products, photos, stock, shipping fee | Admin |
+| `/admin/orders` | Orders & Sales — merch fulfilment, artwork buyers, refunds | Admin |
 
 **API (route handlers under `app/api/`)**
 
@@ -177,14 +200,19 @@ Open [http://localhost:3000](http://localhost:3000).
   - Code requests are limited per email (one every 3 minutes) and per network (5 per 10 minutes, 20 per day; `app/lib/otpIpLimit.ts`). The network is read from `x-real-ip` / `x-forwarded-for`, which is only trustworthy behind a proxy that sets them (Vercel, Nginx, Cloudflare). Addresses are stored as an HMAC keyed with `OTP_PEPPER`, never in the clear.
 - `profile` — update the signed-in user's profile
 - `works/[id]/ratings`, `works/[id]/comments`, `works/ratings/summary` (aggregated list stats), `comments/[id]`
-- `works/[id]/purchase` — open a Midtrans Snap transaction for an album (signed-in)
-- `works/[id]/album` — ownership check; returns signed full-resolution URLs to the owner
+- `works/[id]/purchase` — reserve a work for the caller and open a Midtrans Snap transaction (signed-in); reopens the caller's own unfinished checkout, refuses everyone else while it is reserved or once sold
+- `works/[id]/album` — where the work stands for this visitor (`available` / `reserved` / `reserved_by_you` / `sold` / `owned` / `not_for_sale`); returns full-resolution image addresses to the owner
 - `works/[id]/download?format=jpg&image=…|zip|pdf` — owner downloads; JPEG originals pass through byte-for-byte, the PDF is one page per image
 - `works/[id]/drive` → `drive/google/callback` — copies an owned album into a new folder in the buyer's Google Drive
 - `me/albums` — ids of albums the signed-in visitor owns
-- `me/purchases` — owned albums plus payments still awaiting confirmation (for `/albums`)
-- `payments/midtrans/webhook` — payment notifications; **the only place an order becomes paid** (signature-verified, amount-checked, idempotent)
+- `me/purchases` — owned works, payments still awaiting confirmation, and payments to be refunded (for `/albums`)
+- `shop/products`, `shop/products/[id]` — published products with the current shipping fee
+- `shop/products/[id]/checkout` — take stock and open a Snap transaction for product + shipping (signed-in)
+- `me/product-orders`, `me/product-orders/[id]/pay` — the caller's merchandise orders; reopen an unpaid one's payment
+- `payments/midtrans/webhook` — payment notifications for both kinds of order (`BH-…` artwork, `BHM-…` merchandise); **the only place an order becomes paid** (signature-verified, amount-checked, applied atomically and idempotently in the database)
 - `admin/stats`, `admin/works`, `admin/works/[id]`, `admin/works/[id]/images`, `admin/works/[id]/images/upload-url`, `admin/images/[id]`
+- `admin/products`, `admin/products/[id]`, `admin/products/[id]/images`, `admin/products/[id]/images/upload-url`, `admin/product-images/[id]`, `admin/shop-settings`
+- `admin/product-orders`, `admin/product-orders/[id]` (process → ship → complete, or cancel), `admin/sales`
 
 ## Project structure
 
@@ -193,8 +221,9 @@ app/
   api/            Route handlers (auth, profile, works, admin)
   component/      Reusable UI (Navbar, AuthModal, RatingStars, CommentSection, ...)
   context/        Theme & Toast providers
-  hooks/          useAuth
-  lib/            session, apiAuth, users, supabase clients, otp, oauth, adminUtils
+  hooks/          useAuth, useAlbumAccess
+  lib/            session, apiAuth, users, supabase clients, otp, oauth, adminUtils,
+                  sales (one-buyer rules), shop (merch rules), midtrans, orders, products
   <pages>/        page.tsx per route
   layout.tsx      Root layout, fonts, providers
 proxy.ts          Optimistic route protection
@@ -209,6 +238,21 @@ npm test
 ```
 
 Component and hook tests live in `__tests__/` (Jest + React Testing Library, jsdom).
+
+## Progressive Web App
+
+| Piece | Where |
+| --- | --- |
+| Manifest (`/manifest.webmanifest`) | `app/manifest.ts` |
+| Icons (`/icon/32`, `/icon/192`, `/icon/512`, `/apple-icon`, `/maskable-icon.png`) | `app/icon.tsx`, `app/apple-icon.tsx`, `app/maskable-icon.png/route.tsx` — all drawn by `app/lib/brandIcon.tsx` and rendered once at build |
+| Service worker | `public/sw.js`, registered by `app/component/ServiceWorkerRegister.tsx` (production only) |
+| Offline page | `public/offline.html` |
+| Install suggestion | `app/component/InstallPrompt.tsx`, rules in `app/lib/pwa.ts` |
+
+- **What the service worker caches, on purpose, is very little:** only content-hashed build files under `/_next/static/` (cache-first) and the offline page. Pages, API routes, Supabase images, Midtrans and downloads always go to the network — sessions, payments and paid files must never come from a cache. A navigation that fails offline shows `offline.html`.
+- **Changing `sw.js` or `offline.html`?** Bump `VERSION` at the top of `sw.js`; old caches are deleted when the new worker activates. `/sw.js` is served `no-cache` (see `next.config.ts`) so phones pick up a new version on their next visit.
+- **In development the worker is unregistered**, not registered: dev build files aren't content-hashed, and a cached copy would fight hot reload. Test PWA behaviour with `npm run build && npm run start`.
+- Installing needs HTTPS in production (localhost is exempt). The install suggestion only appears on touch devices, after a few seconds, never in the admin panel or inside social-app browsers (Instagram, TikTok, Facebook…), and stays hidden for 30 days once dismissed.
 
 ## Notes
 

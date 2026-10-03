@@ -72,9 +72,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // as a whole: you cannot flip is_for_sale on without a usable price.
       const { data: current } = await supabaseAdmin
         .from('works')
-        .select('price_idr, is_for_sale')
+        .select('price_idr, is_for_sale, sold_at')
         .eq('id', id)
         .maybeSingle();
+
+      // A work has exactly one buyer; once sold its price and availability are history.
+      const changesSale =
+        (price_idr !== undefined && price_idr !== current?.price_idr) ||
+        (is_for_sale !== undefined && Boolean(is_for_sale) !== Boolean(current?.is_for_sale));
+      if (current?.sold_at && changesSale) {
+        return NextResponse.json(
+          { error: 'This work has been sold; its price and availability can no longer change.' },
+          { status: 409 }
+        );
+      }
 
       const nextPrice = price_idr !== undefined ? price_idr : current?.price_idr ?? null;
       const nextForSale = is_for_sale !== undefined ? is_for_sale : current?.is_for_sale ?? false;
@@ -119,16 +130,16 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
 
   // An album someone paid for must survive: deleting it would strip a buyer of
-  // what they own. (The FK is ON DELETE RESTRICT; this gives a clear message.)
-  const { count: paidOrders } = await supabaseAdmin
+  // what they own. Orders of any kind also keep it: the FK is ON DELETE
+  // RESTRICT, and this gives a clear message instead of a constraint error.
+  const { count: orderCount } = await supabaseAdmin
     .from('orders')
     .select('id', { count: 'exact', head: true })
-    .eq('work_id', id)
-    .eq('status', 'paid');
+    .eq('work_id', id);
 
-  if ((paidOrders ?? 0) > 0) {
+  if ((orderCount ?? 0) > 0) {
     return NextResponse.json(
-      { error: 'This album has been purchased and cannot be deleted. Unpublish it instead.' },
+      { error: 'This work has orders and cannot be deleted. Unpublish it instead.' },
       { status: 409 }
     );
   }

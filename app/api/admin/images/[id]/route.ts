@@ -26,10 +26,7 @@ async function loadOwnedImage(imageId: string, userId: string) {
   return { ok: true as const, image };
 }
 
-/**
- * Keep works.featured_image_url pointing at an image that actually exists, and
- * make sure the album still has exactly one unlocked (clean) preview.
- */
+/** Keep works.featured_image_url pointing at an image that actually exists. */
 async function resyncFeaturedImage(workId: string) {
   const { data: remaining } = await supabaseAdmin
     .from('work_images')
@@ -46,8 +43,7 @@ async function resyncFeaturedImage(workId: string) {
 
   const featured = images.find((img) => img.is_featured);
   if (!featured) {
-    // The cover was the one deleted: promote the first survivor, which also
-    // regenerates its preview as the album's single clean image.
+    // The cover was the one deleted: promote the first survivor.
     await setFeaturedImage(workId, images[0].id);
     return;
   }
@@ -66,7 +62,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const owned = await loadOwnedImage(id, auth.user.id);
   if (!owned.ok) return NextResponse.json({ error: owned.message }, { status: owned.status });
 
-  // Swaps the clean preview onto this image and re-blurs the previous cover.
   await setFeaturedImage(owned.image.work_id, id);
 
   return NextResponse.json({ success: true });

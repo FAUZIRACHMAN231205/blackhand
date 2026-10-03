@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)" />
+    <title>Offline · Blackhand</title>
+    <script>
+      // Honour the theme chosen in the app (same key as app/lib/theme.ts),
+      // falling back to the device setting via the media query below.
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || t === 'light') {
+          document.documentElement.setAttribute('data-theme', t);
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+            m.setAttribute('content', t === 'dark' ? '#020617' : '#ffffff');
+          });
+        }
+      } catch (e) {}
+    </script>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #000000;
+        --muted: rgba(0, 0, 0, 0.6);
+        --button-bg: #000000;
+        --button-fg: #ffffff;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #020617;
+          --fg: #ffffff;
+          --muted: rgba(255, 255, 255, 0.6);
+          --button-bg: #ffffff;
+          --button-fg: #000000;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #020617;
+        --fg: #ffffff;
+        --muted: rgba(255, 255, 255, 0.6);
+        --button-bg: #ffffff;
+        --button-fg: #000000;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+        text-align: center;
+      }
+      main { max-width: 360px; }
+      .logo {
+        color: var(--fg);
+        font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+        font-style: italic;
+        font-size: 32px;
+        letter-spacing: -0.03em;
+        margin: 0 0 32px;
+      }
+      .logo span { color: #71717a; }
+      h1 {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-style: italic;
+        font-weight: 400;
+        font-size: 28px;
+        margin: 0 0 12px;
+      }
+      p { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 28px; }
+      button {
+        min-height: 48px;
+        padding: 0 28px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--button-bg);
+        color: var(--button-fg);
+        font: 800 11px/1 system-ui, sans-serif;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="logo">Blackhand<span>.</span></p>
+      <h1>Anda sedang offline</h1>
+      <p>Periksa koneksi internet Anda, lalu coba lagi. Galeri, toko, dan pesanan Anda akan kembali begitu tersambung.</p>
+      <button type="button" onclick="location.reload()">Coba Lagi</button>
+    </main>
+    <script>
+      // Come back by itself as soon as the connection returns.
+      window.addEventListener('online', () => location.reload());
+    </script>
+  </body>
+</html>

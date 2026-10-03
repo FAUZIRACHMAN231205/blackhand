@@ -10,10 +10,10 @@ import { isAdmin } from '@/app/lib/adminUtils';
 
 const SESSION_COOKIE = 'bh_session';
 
-// /gallery and /works are intentionally public: visitors can browse published
-// works without an account. Signing in is only required to rate or comment,
+// /gallery, /works and /shop are intentionally public: visitors can browse
+// without an account. Signing in is only required to rate, comment or buy,
 // which the API routes enforce on their own.
-const PROTECTED_PATHS = ['/dashboard', '/settings', '/admin', '/albums'];
+const PROTECTED_PATHS = ['/dashboard', '/settings', '/admin', '/albums', '/orders'];
 const ADMIN_ONLY_PATHS = ['/admin'];
 
 async function readSessionUser(token: string | undefined) {
@@ -54,5 +54,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/settings/:path*', '/admin/:path*', '/albums/:path*'],
+  matcher: ['/dashboard/:path*', '/settings/:path*', '/admin/:path*', '/albums/:path*', '/orders/:path*'],
 };

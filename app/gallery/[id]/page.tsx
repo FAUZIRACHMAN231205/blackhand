@@ -11,7 +11,6 @@ import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import RatingStars from '../../component/RatingStars';
 import CommentSection from '../../component/CommentSection';
 import AlbumPurchase from '../../component/AlbumPurchase';
-import LockedOverlay from '../../component/LockedOverlay';
 import { useAlbumAccess } from '../../hooks/useAlbumAccess';
 import { isAdmin as checkAdmin } from '../../lib/adminUtils';
 import type { Work, WorkImage } from '../../types';
@@ -29,7 +28,7 @@ export default function GalleryDetail() {
   const [ratingsVersion, setRatingsVersion] = useState(0);
   const [descExpanded, setDescExpanded] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const { owned, unlockedUrls, refresh: refreshAccess } = useAlbumAccess(workId, Boolean(user));
+  const { sale, unlockedUrls, refresh: refreshAccess } = useAlbumAccess(workId, Boolean(user));
 
   const fetchWorkDetail = async () => {
     try {
@@ -106,14 +105,9 @@ export default function GalleryDetail() {
   const currentImage = images[currentImageIndex];
   const isLongDescription = (work.description?.length ?? 0) > 280;
 
-  // The cover stays clean as a sample; every other preview is stored blurred,
-  // whether or not the album is on sale, until a buyer gets the originals.
-  const forSale = Boolean(work.is_for_sale && work.price_idr);
-  const isLocked = (img: WorkImage) => !owned && !img.is_featured;
-  const lockHint = forSale
-    ? 'Beli album ini untuk membuka gambar resolusi penuh.'
-    : 'Pratinjau terbatas — album ini belum tersedia untuk dibeli.';
+  // Everyone sees every image; the owner sees the full-resolution originals.
   const displayUrl = (img: WorkImage) => unlockedUrls[img.id] ?? img.image_url;
+  const sold = sale ? sale.status === 'sold' || sale.status === 'owned' : Boolean(work.sold_at);
 
   return (
     <>
@@ -140,9 +134,6 @@ export default function GalleryDetail() {
                   alt={work.title}
                   className="w-full h-full object-contain"
                 />
-                {isLocked(currentImage) && (
-                  <LockedOverlay hint={lockHint} />
-                )}
                 {images.length > 1 && (
                   <>
                     <button
@@ -184,7 +175,6 @@ export default function GalleryDetail() {
                         alt={`Thumbnail ${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
-                      {isLocked(img) && <LockedOverlay compact />}
                       {img.is_featured && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                           <Star size={14} className="text-amber-400 fill-current" />
@@ -213,6 +203,11 @@ export default function GalleryDetail() {
                         <Star size={11} className="inline -mt-0.5 mr-1 fill-current" />Featured
                       </span>
                     )}
+                    {sold && (
+                      <span className="px-3 py-1 bg-zinc-950 dark:bg-white rounded-full font-sans text-[10px] font-bold uppercase tracking-wider text-white dark:text-black">
+                        Terjual
+                      </span>
+                    )}
                   </div>
 
                   {/* Rating Stars Section */}
@@ -238,11 +233,10 @@ export default function GalleryDetail() {
                   workId={workId}
                   imageCount={images.length}
                   priceIdr={work.price_idr ?? null}
-                  isForSale={Boolean(work.is_for_sale)}
-                  owned={owned}
+                  sale={sale}
                   isLoggedIn={Boolean(user)}
                   onRequireAuth={() => setAuthOpen(true)}
-                  onUnlocked={refreshAccess}
+                  onChanged={refreshAccess}
                   currentImageId={currentImage.id}
                   currentPosition={currentImageIndex + 1}
                 />

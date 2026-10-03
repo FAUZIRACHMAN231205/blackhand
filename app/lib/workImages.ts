@@ -1,11 +1,6 @@
 import 'server-only';
 import { supabaseAdmin } from './supabaseAdmin';
-import {
-  downloadOriginal,
-  uploadPreview,
-  removeStoredImages,
-  previewKey,
-} from './storage';
+import { downloadOriginal, uploadPreview, removeStoredImages, previewKey } from './storage';
 import { makePreview } from './images';
 
 /** `works/<workId>/<fileId>.jpg` -> `<fileId>` */
@@ -14,74 +9,49 @@ export function fileIdFromOriginalPath(originalPath: string): string {
   return base.replace(/\.[^.]+$/, '');
 }
 
-/** Generate + upload a preview for an original, returning its public URL. */
-export async function renderPreview(
-  workId: string,
-  originalPath: string,
-  unlocked: boolean
-): Promise<string | null> {
+/** Generate + upload the public preview for an original, returning its public URL. */
+export async function renderPreview(workId: string, originalPath: string): Promise<string | null> {
   const original = await downloadOriginal(originalPath);
   if (!original) return null;
 
   const fileId = fileIdFromOriginalPath(originalPath);
-  return uploadPreview(previewKey(workId, fileId, unlocked), await makePreview(original, unlocked));
+  return uploadPreview(previewKey(workId, fileId), await makePreview(original));
 }
 
 /**
- * Build (or rebuild) the public preview for one image so it matches its
- * locked/unlocked state, point the row at it, and drop the preview from the
- * previous state. Returns the new public URL, or null if it could not be built.
+ * Previews built under the old paywall were stored blurred. Rebuild one clean
+ * the first time it is touched, in case the one-off unblur script hasn't run.
  */
-export async function buildPreview(
+async function ensureCleanPreview(
   workId: string,
-  image: { id: string; image_url: string | null; original_path: string | null },
-  unlocked: boolean
+  image: { id: string; image_url: string | null; original_path: string | null }
 ): Promise<string | null> {
-  if (!image.original_path) return null;
+  if (!image.image_url?.includes('-locked.') || !image.original_path) return image.image_url;
 
-  const original = await downloadOriginal(image.original_path);
-  if (!original) return null;
-
-  const fileId = fileIdFromOriginalPath(image.original_path);
-  const url = await uploadPreview(previewKey(workId, fileId, unlocked), await makePreview(original, unlocked));
-  if (!url) return null;
+  const url = await renderPreview(workId, image.original_path);
+  if (!url) return image.image_url;
 
   await supabaseAdmin.from('work_images').update({ image_url: url }).eq('id', image.id);
-
-  // Remove the preview for the state we just left, so a locked image never
-  // keeps a clean file lying around in the public bucket.
-  if (image.image_url && image.image_url !== url) {
-    await removeStoredImages([image.image_url]);
-  }
+  await removeStoredImages([image.image_url]);
   return url;
 }
 
 /**
- * Make one image the album's featured (unlocked) image. Clears the flag on its
- * siblings, regenerates the previews of both the old and the new featured image
- * so exactly one clean preview exists, and syncs works.featured_image_url.
+ * Make one image the album's cover: clear the flag on its siblings and point
+ * works.featured_image_url at it.
  */
 export async function setFeaturedImage(workId: string, imageId: string): Promise<void> {
-  const { data: images } = await supabaseAdmin
+  const { data: image } = await supabaseAdmin
     .from('work_images')
-    .select('id, image_url, original_path, is_featured')
-    .eq('work_id', workId);
-
-  const all = images ?? [];
-  const next = all.find((img) => img.id === imageId);
-  if (!next) return;
-
-  const previous = all.find((img) => img.is_featured && img.id !== imageId);
+    .select('id, image_url, original_path')
+    .eq('id', imageId)
+    .eq('work_id', workId)
+    .maybeSingle();
+  if (!image) return;
 
   await supabaseAdmin.from('work_images').update({ is_featured: false }).eq('work_id', workId);
   await supabaseAdmin.from('work_images').update({ is_featured: true }).eq('id', imageId);
 
-  // The one leaving the spotlight must go back behind the blur.
-  if (previous) await buildPreview(workId, previous, false);
-
-  const url = await buildPreview(workId, next, true);
-  await supabaseAdmin
-    .from('works')
-    .update({ featured_image_url: url ?? next.image_url })
-    .eq('id', workId);
+  const url = await ensureCleanPreview(workId, image);
+  await supabaseAdmin.from('works').update({ featured_image_url: url }).eq('id', workId);
 }
