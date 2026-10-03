@@ -15,7 +15,7 @@ import { WORK_CATEGORIES, formatIdr } from '../lib/categories';
 import { GALLERY_PAGE_SIZE, pageRange, splitPage } from '../lib/pagination';
 
 const WORK_COLUMNS =
-  'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale';
+  'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale, sold_at';
 
 type RatingStats = Record<string, { average: number; count: number } | null>;
 
@@ -289,11 +289,18 @@ export default function Gallery() {
                           <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
                         </div>
                       )}
-                      {work.is_for_sale && work.price_idr != null && (
-                        <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white backdrop-blur-md">
-                          <Tag size={10} strokeWidth={2} />
-                          {formatIdr(work.price_idr)}
+                      {work.sold_at ? (
+                        <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 font-sans text-[10px] font-black uppercase tracking-wider text-black backdrop-blur-md">
+                          Terjual
                         </span>
+                      ) : (
+                        work.is_for_sale &&
+                        work.price_idr != null && (
+                          <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white backdrop-blur-md">
+                            <Tag size={10} strokeWidth={2} />
+                            {formatIdr(work.price_idr)}
+                          </span>
+                        )
                       )}
                     </div>
                     <div>

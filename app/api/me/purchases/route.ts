@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/app/lib/apiAuth';
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin';
+import { expireStaleOrders } from '@/app/lib/orders';
 
 /** Pending bank-transfer / e-wallet orders stay visible this long. */
 const PENDING_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -10,7 +11,7 @@ interface OrderRow {
   work_id: string;
   work_title: string;
   amount_idr: number;
-  status: 'paid' | 'pending';
+  status: 'paid' | 'pending' | 'needs_refund';
   created_at: string;
   paid_at: string | null;
   works: {
@@ -22,12 +23,15 @@ interface OrderRow {
 }
 
 /**
- * The signed-in buyer's albums: what they own, plus recent payments that are
- * still waiting on confirmation (virtual accounts can take hours to settle).
+ * The signed-in buyer's albums: what they own, checkouts still waiting on
+ * payment, and payments that arrived after someone else had already bought
+ * the work (those are refunded by hand).
  */
 export async function GET() {
   const auth = await requireUser();
   if ('error' in auth) return auth.error;
+
+  await expireStaleOrders();
 
   const { data, error } = await supabaseAdmin
     .from('orders')
@@ -35,7 +39,7 @@ export async function GET() {
       'id, work_id, work_title, amount_idr, status, created_at, paid_at, works(title, category, featured_image_url, work_images(count))'
     )
     .eq('user_id', auth.user.id)
-    .in('status', ['paid', 'pending'])
+    .in('status', ['paid', 'pending', 'needs_refund'])
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -69,5 +73,11 @@ export async function GET() {
     return true;
   });
 
-  return NextResponse.json({ owned: owned.map(shape), pending: pending.map(shape) });
+  const needsRefund = rows.filter((o) => o.status === 'needs_refund');
+
+  return NextResponse.json({
+    owned: owned.map(shape),
+    pending: pending.map(shape),
+    needsRefund: needsRefund.map(shape),
+  });
 }

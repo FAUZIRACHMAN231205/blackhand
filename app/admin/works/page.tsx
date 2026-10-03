@@ -10,6 +10,7 @@ import ConfirmDialog from '../../component/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 import { Plus, Edit2, Trash2, ChevronLeft, ImageOff, ChevronDown, Loader2 } from 'lucide-react';
 import { formatIdr } from '../../lib/categories';
+import { isReserved } from '../../lib/sales';
 import Link from 'next/link';
 
 interface Work {
@@ -21,6 +22,8 @@ interface Work {
   created_at: string;
   price_idr: number | null;
   is_for_sale: boolean;
+  sold_at: string | null;
+  reserved_until: string | null;
 }
 
 /** One page of the signed-in admin's works. */
@@ -92,8 +95,9 @@ export default function AdminWorks() {
       const res = await fetch(`/api/admin/works/${pendingDelete.id}`, { method: 'DELETE' });
 
       if (!res.ok) {
-        console.error('Error deleting work:', await res.text());
-        showToast({ type: 'error', message: 'Failed to delete work' });
+        const detail = await res.json().catch(() => null);
+        console.error('Error deleting work:', detail);
+        showToast({ type: 'error', message: detail?.error || 'Failed to delete work' });
         return;
       }
 
@@ -193,14 +197,35 @@ export default function AdminWorks() {
                             Unpublished
                           </span>
                         )}
+                        {work.sold_at ? (
+                          <span className="px-2 py-0.5 bg-zinc-950 dark:bg-white rounded-full font-sans text-[9px] font-bold uppercase tracking-wider text-white dark:text-black">
+                            Sold
+                          </span>
+                        ) : (
+                          isReserved(work) && (
+                            <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 rounded-full font-sans text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                              Checkout in progress
+                            </span>
+                          )
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 font-sans text-xs text-black/50 dark:text-white/50">
                         <span>{work.category}</span>
                         <span>{new Date(work.created_at).toLocaleDateString('id-ID')}</span>
-                        <span className={work.is_for_sale ? 'font-bold text-emerald-600 dark:text-emerald-400' : ''}>
-                          {work.is_for_sale && work.price_idr != null
-                            ? formatIdr(work.price_idr)
-                            : 'Not for sale'}
+                        <span
+                          className={
+                            work.sold_at
+                              ? 'font-bold text-black dark:text-white'
+                              : work.is_for_sale
+                                ? 'font-bold text-emerald-600 dark:text-emerald-400'
+                                : ''
+                          }
+                        >
+                          {work.sold_at
+                            ? `Sold for ${formatIdr(work.price_idr ?? 0)}`
+                            : work.is_for_sale && work.price_idr != null
+                              ? formatIdr(work.price_idr)
+                              : 'Not for sale'}
                         </span>
                       </div>
                     </div>

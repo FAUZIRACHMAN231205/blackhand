@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { User, LogOut, Settings, Moon, Sun, Menu, X, Library } from 'lucide-react';
+import { User, LogOut, Settings, Moon, Sun, Menu, X, Library, Package } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { isAdmin } from '../lib/adminUtils';
 import { useTheme } from '../context/ThemeContext';
@@ -77,7 +77,10 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
   const navLinks = [
     { href: '/works', label: 'Feed' },
     { href: '/gallery', label: 'Collection' },
+    { href: '/shop', label: 'Shop' },
   ];
+
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
   return (
     <>
@@ -94,13 +97,13 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
         </Link>
 
         {/* Menu Navigasi Desktop dengan Poppins */}
-        <div className="hidden md:flex items-center space-x-10 font-sans text-xs font-bold tracking-[0.15em] uppercase text-black dark:text-white">
+        <div className="hidden md:flex items-center space-x-6 lg:space-x-10 font-sans text-xs font-bold tracking-[0.15em] uppercase text-black dark:text-white">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               className={`py-2 transition-colors ${
-                pathname === link.href
+                isActive(link.href)
                   ? 'text-violet-600 dark:text-violet-400'
                   : 'hover:text-black/60 dark:hover:text-white/60'
               }`}
@@ -137,28 +140,46 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
                     {(user.full_name || user.email || 'B').charAt(0).toUpperCase()}
                   </span>
                 )}
-                <span className="font-sans text-xs text-black dark:text-white truncate">
+                {/* On tablets the row is tight: avatar only, name from lg up. */}
+                <span className="hidden lg:block font-sans text-xs text-black dark:text-white truncate">
                   {user.full_name || user.email}
                 </span>
               </span>
               <Link
                 href="/albums"
-                className={`py-2 font-sans text-xs font-bold transition-colors flex items-center gap-1 ${
+                aria-label="Album Saya"
+                title="Album Saya"
+                className={`py-2 px-1 font-sans text-xs font-bold transition-colors flex items-center gap-1 ${
                   pathname === '/albums'
                     ? 'text-violet-600 dark:text-violet-400'
                     : 'text-black dark:text-white hover:text-black/60 dark:hover:text-white/60'
                 }`}
               >
                 <Library size={14} strokeWidth={2} />
-                <span>Album Saya</span>
+                <span className="hidden lg:inline">Album Saya</span>
+              </Link>
+              <Link
+                href="/orders"
+                aria-label="Pesanan Saya"
+                title="Pesanan Saya"
+                className={`py-2 px-1 font-sans text-xs font-bold transition-colors flex items-center gap-1 ${
+                  pathname === '/orders'
+                    ? 'text-violet-600 dark:text-violet-400'
+                    : 'text-black dark:text-white hover:text-black/60 dark:hover:text-white/60'
+                }`}
+              >
+                <Package size={14} strokeWidth={2} />
+                <span className="hidden lg:inline">Pesanan</span>
               </Link>
               {isAdmin(user) && (
-                <Link 
+                <Link
                   href="/admin"
-                  className="py-2 font-sans text-xs font-bold text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors flex items-center gap-1"
+                  aria-label="Admin"
+                  title="Admin"
+                  className="py-2 px-1 font-sans text-xs font-bold text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors flex items-center gap-1"
                 >
                   <Settings size={14} strokeWidth={2} />
-                  <span className="hidden sm:block">Admin</span>
+                  <span className="hidden lg:inline">Admin</span>
                 </Link>
               )}
               <button 
@@ -261,7 +282,7 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
                 className={`flex items-center gap-3 px-4 py-3.5 rounded-xl font-sans text-sm font-bold transition-colors ${
-                  pathname === link.href
+                  isActive(link.href)
                     ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
                     : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
@@ -282,6 +303,21 @@ export default function Navbar({ onOpenModal }: NavbarProps) {
               >
                 <Library size={16} strokeWidth={1.5} />
                 Album Saya
+              </Link>
+            )}
+
+            {user && (
+              <Link
+                href="/orders"
+                onClick={() => setMenuOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl font-sans text-sm font-bold transition-colors ${
+                  pathname === '/orders'
+                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                    : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <Package size={16} strokeWidth={1.5} />
+                Pesanan Saya
               </Link>
             )}
 

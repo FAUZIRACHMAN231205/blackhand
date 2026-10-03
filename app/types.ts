@@ -25,6 +25,27 @@ export interface Work {
   /** Album price in rupiah. Null when the album has no price set. */
   price_idr?: number | null;
   is_for_sale?: boolean;
+  /** Set once the single buyer has paid; the work stays visible but can't be bought. */
+  sold_at?: string | null;
+  /** While in the future, someone is paying for this work. */
+  reserved_until?: string | null;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price_idr: number;
+  stock: number;
+  cover_image_url: string | null;
+  created_at: string;
+  is_published?: boolean;
+}
+
+export interface ProductImage {
+  id: string;
+  image_url: string;
+  display_order: number;
 }
 
 export interface WorkImage {

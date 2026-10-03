@@ -6,8 +6,8 @@ import { renderPreview, setFeaturedImage } from '@/app/lib/workImages';
 
 /**
  * Registers an original that was just uploaded to the private bucket, and
- * derives the public preview from it. Images start locked (blurred); making one
- * featured is what unlocks a single clean preview for the album.
+ * derives the public preview from it. Every preview is clean; the original
+ * itself stays private as the buyer's download.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    const previewUrl = await renderPreview(id, original_path, false);
+    const previewUrl = await renderPreview(id, original_path);
     if (!previewUrl) {
       return NextResponse.json({ error: 'Failed to process the uploaded image' }, { status: 500 });
     }
@@ -69,8 +69,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Failed to save image' }, { status: 500 });
     }
 
-    // Promoting handles clearing siblings, re-blurring the old cover and
-    // syncing works.featured_image_url.
+    // Promoting handles clearing siblings and syncing works.featured_image_url.
     if (is_featured) await setFeaturedImage(id, data.id);
 
     const { data: fresh } = await supabaseAdmin

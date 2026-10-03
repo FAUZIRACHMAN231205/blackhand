@@ -19,6 +19,7 @@ interface Work {
   is_published: boolean;
   price_idr: number | null;
   is_for_sale: boolean;
+  sold_at: string | null;
 }
 
 interface WorkImage {
@@ -50,6 +51,7 @@ export default function EditWork() {
   const [isPublished, setIsPublished] = useState(true);
   const [isForSale, setIsForSale] = useState(false);
   const [priceIdr, setPriceIdr] = useState('');
+  const [soldAt, setSoldAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingDeleteImage, setPendingDeleteImage] = useState<WorkImage | null>(null);
@@ -85,6 +87,7 @@ export default function EditWork() {
       setIsPublished(workData.is_published);
       setIsForSale(Boolean(workData.is_for_sale));
       setPriceIdr(workData.price_idr == null ? '' : String(workData.price_idr));
+      setSoldAt(workData.sold_at ?? null);
       setWorkImages(imagesData || []);
     } catch (error) {
       console.error('Error:', error);
@@ -267,13 +270,21 @@ export default function EditWork() {
                 </div>
               </div>
 
+              {soldAt && (
+                <p className="rounded-xl border border-black/10 bg-black/[0.03] px-4 py-3 font-sans text-xs text-black/70 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70">
+                  Sold on {new Date(soldAt).toLocaleDateString('id-ID')}. A work has a single buyer, so its
+                  price and availability are fixed now. The buyer is listed under Orders &amp; Sales.
+                </p>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Availability</label>
                   <select
                     value={isForSale ? 'sale' : 'not-for-sale'}
                     onChange={(e) => setIsForSale(e.target.value === 'sale')}
-                    className={inputClass}
+                    disabled={Boolean(soldAt)}
+                    className={`${inputClass} disabled:opacity-60`}
                   >
                     <option value="not-for-sale">Not for sale</option>
                     <option value="sale">For sale</option>
@@ -289,8 +300,9 @@ export default function EditWork() {
                     step={1000}
                     value={priceIdr}
                     onChange={(e) => setPriceIdr(e.target.value)}
+                    disabled={Boolean(soldAt)}
                     placeholder="50000"
-                    className={inputClass}
+                    className={`${inputClass} disabled:opacity-60`}
                   />
                   <p className="mt-1.5 font-sans text-[11px] text-black/60 dark:text-white/60">
                     {priceIdr !== '' && Number(priceIdr) > 0

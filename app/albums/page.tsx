@@ -110,6 +110,7 @@ export default function MyAlbums() {
   const router = useRouter();
   const [owned, setOwned] = useState<AlbumEntry[]>([]);
   const [pending, setPending] = useState<AlbumEntry[]>([]);
+  const [needsRefund, setNeedsRefund] = useState<AlbumEntry[]>([]);
   const [loadingAlbums, setLoadingAlbums] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -124,10 +125,12 @@ export default function MyAlbums() {
       try {
         const res = await fetch('/api/me/purchases');
         if (!res.ok) throw new Error(await res.text());
-        const data: { owned: AlbumEntry[]; pending: AlbumEntry[] } = await res.json();
+        const data: { owned: AlbumEntry[]; pending: AlbumEntry[]; needsRefund?: AlbumEntry[] } =
+          await res.json();
         if (cancelled) return;
         setOwned(data.owned);
         setPending(data.pending);
+        setNeedsRefund(data.needsRefund ?? []);
       } catch (err) {
         console.error('Error loading albums:', err);
         if (!cancelled) setLoadError(true);
@@ -169,6 +172,31 @@ export default function MyAlbums() {
           <Suspense fallback={null}>
             <DriveResultBanner />
           </Suspense>
+
+          {needsRefund.length > 0 && (
+            <section className="mb-10">
+              <h2 className="mb-3 font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/50 dark:text-white/50">
+                Pembayaran Akan Dikembalikan
+              </h2>
+              <ul className="space-y-2">
+                {needsRefund.map((album) => (
+                  <li
+                    key={album.orderId}
+                    className="flex items-center gap-3 rounded-xl border border-rose-500/25 bg-rose-500/5 px-4 py-3"
+                  >
+                    <XCircle size={16} className="shrink-0 text-rose-600 dark:text-rose-400" />
+                    <div className="min-w-0 flex-grow">
+                      <p className="truncate font-serif text-base italic">{album.title}</p>
+                      <p className="font-sans text-[11px] text-black/55 dark:text-white/55">
+                        {formatIdr(album.amountIdr)} · karya ini sudah terjual ke pembeli lain sebelum
+                        pembayaran Anda diterima. Dana Anda akan dikembalikan oleh admin.
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {pending.length > 0 && (
             <section className="mb-10">
@@ -214,7 +242,8 @@ export default function MyAlbums() {
               </div>
               <h2 className="mb-2 font-serif text-2xl italic">Belum ada album</h2>
               <p className="mb-6 font-sans text-sm text-black/60 dark:text-white/60">
-                Album yang Anda beli akan muncul di sini, siap diunduh kapan saja.
+                Karya yang Anda beli akan muncul di sini, siap diunduh kapan saja. Setiap karya hanya
+                dijual kepada satu kolektor.
               </p>
               <Link
                 href="/gallery"

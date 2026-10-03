@@ -2,6 +2,8 @@
 export const GALLERY_PAGE_SIZE = 12;
 export const FEED_PAGE_SIZE = 6;
 export const ADMIN_WORKS_PAGE_SIZE = 20;
+export const SHOP_PAGE_SIZE = 12;
+export const ADMIN_ORDERS_PAGE_SIZE = 20;
 
 /**
  * Range for one page, asking for a single extra row: if it comes back there is

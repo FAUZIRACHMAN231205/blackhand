@@ -22,8 +22,8 @@ import {
 import Link from 'next/link';
 import RatingStars from '../component/RatingStars';
 import { LoadingSpinner, SkeletonCard } from '../component/LoadingStates';
-import LockedOverlay from '../component/LockedOverlay';
 import { formatIdr } from '../lib/categories';
+import { publicSaleStatus } from '../lib/sales';
 import { FEED_PAGE_SIZE, pageRange, splitPage } from '../lib/pagination';
 import type { Work, WorkImage } from '../types';
 
@@ -81,9 +81,14 @@ function FeedPost({
   const [originalUrls, setOriginalUrls] = useState<Record<string, string>>({});
   const commentCount = stats?.comments ?? 0;
 
-  // Only the cover is a clean sample; every other preview is stored blurred.
-  const forSale = Boolean(work.is_for_sale && work.price_idr);
-  const locked = (img: WorkImage) => !owned && !img.is_featured;
+  const saleStatus = publicSaleStatus(work);
+  const badge = owned
+    ? 'Dimiliki'
+    : saleStatus === 'sold'
+      ? 'Terjual'
+      : saleStatus === 'available' || saleStatus === 'reserved'
+        ? formatIdr(work.price_idr ?? 0)
+        : null;
 
   const isNew =
     Math.floor(
@@ -117,8 +122,8 @@ function FeedPost({
       }
     }
 
-    // Owners get the real images instead of blurred previews, fetched only
-    // when the gallery is opened.
+    // Owners get the full-resolution originals instead of the previews,
+    // fetched only when the gallery is opened.
     if (owned && Object.keys(originalUrls).length === 0) {
       try {
         const res = await fetch(`/api/works/${work.id}/album`);
@@ -179,10 +184,10 @@ function FeedPost({
             className="w-full aspect-[16/10] object-cover"
             loading="lazy"
           />
-          {(owned || (forSale && work.price_idr != null)) && (
+          {badge && (
             <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white backdrop-blur-md">
               <Tag size={10} strokeWidth={2} />
-              {owned ? 'Dimiliki' : formatIdr(work.price_idr ?? 0)}
+              {badge}
             </span>
           )}
         </div>
@@ -278,7 +283,6 @@ function FeedPost({
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
-                {locked(img) && <LockedOverlay compact />}
                 {img.is_featured && (
                   <div className="absolute top-2 left-2 px-2 py-0.5 bg-amber-400 text-black text-[9px] font-bold rounded-full shadow font-sans z-10">
                     <Star size={10} className="inline -mt-0.5 mr-1 fill-current" />Cover
@@ -300,7 +304,7 @@ function FeedPost({
 }
 
 const FEED_COLUMNS =
-  'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale';
+  'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale, sold_at';
 
 type FeedStats = Record<string, { average: number; count: number; comments: number } | null>;
 

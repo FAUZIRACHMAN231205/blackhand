@@ -1,7 +1,7 @@
 /**
  * One-off migration: move existing full-resolution images out of the public
  * bucket into the private one, and replace what the public bucket serves with
- * derived previews (one clean cover per album, the rest pre-blurred).
+ * derived clean, downscaled previews.
  *
  * Run with:  node --env-file=.env.local scripts/migrate-originals.mjs
  *
@@ -35,10 +35,6 @@ function publicPathFromUrl(url) {
 const cleanPreview = (buf) =>
   sharp(buf).rotate().resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 82, mozjpeg: true }).toBuffer();
-
-const blurredPreview = (buf) =>
-  sharp(buf).rotate().resize({ width: 420, height: 420, fit: 'inside', withoutEnlargement: true })
-    .blur(18).jpeg({ quality: 60, mozjpeg: true }).toBuffer();
 
 const { data: pending, error } = await sb
   .from('work_images')
@@ -87,9 +83,9 @@ for (const img of pending) {
     continue;
   }
 
-  const unlocked = Boolean(img.is_featured);
-  const previewPath = `works/${img.work_id}/${fileId}-${unlocked ? 'preview' : 'locked'}.jpg`;
-  const preview = unlocked ? await cleanPreview(buf) : await blurredPreview(buf);
+  const isCover = Boolean(img.is_featured);
+  const previewPath = `works/${img.work_id}/${fileId}-preview.jpg`;
+  const preview = await cleanPreview(buf);
 
   const { error: pvErr } = await sb.storage
     .from(PUBLIC_BUCKET)
@@ -108,13 +104,13 @@ for (const img of pending) {
   // The full-resolution file must not stay publicly reachable.
   await sb.storage.from(PUBLIC_BUCKET).remove([oldPath]);
 
-  if (unlocked) {
+  if (isCover) {
     await sb.from('works').update({ featured_image_url: pub.publicUrl }).eq('id', img.work_id);
   }
 
   touchedWorks.add(img.work_id);
   done += 1;
-  console.log(`  ✓ ${img.id} -> ${unlocked ? 'clean cover' : 'blurred'} (${Math.round(preview.length / 1024)} KB)`);
+  console.log(`  ✓ ${img.id} -> preview${isCover ? ' (cover)' : ''} (${Math.round(preview.length / 1024)} KB)`);
 }
 
 // Any album left without a cover gets its first image promoted.

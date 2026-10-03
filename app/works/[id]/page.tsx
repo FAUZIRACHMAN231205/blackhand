@@ -8,7 +8,6 @@ import Navbar from '../../component/Navbar';
 import AuthModal from '../../component/AuthModal';
 import { LoadingSpinner } from '../../component/LoadingStates';
 import AlbumPurchase from '../../component/AlbumPurchase';
-import LockedOverlay from '../../component/LockedOverlay';
 import { useAlbumAccess } from '../../hooks/useAlbumAccess';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 
@@ -20,6 +19,7 @@ interface Work {
   created_at: string;
   price_idr: number | null;
   is_for_sale: boolean;
+  sold_at: string | null;
 }
 
 interface WorkImage {
@@ -40,7 +40,7 @@ export default function WorkDetail() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loadingWork, setLoadingWork] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
-  const { owned, unlockedUrls, refresh: refreshAccess } = useAlbumAccess(workId, Boolean(user));
+  const { sale, unlockedUrls, refresh: refreshAccess } = useAlbumAccess(workId, Boolean(user));
 
   const fetchWorkDetail = async () => {
     try {
@@ -116,14 +116,9 @@ export default function WorkDetail() {
 
   const currentImage = images[currentImageIndex];
 
-  // The cover stays clean as a sample; every other preview is stored blurred,
-  // whether or not the album is on sale, until a buyer gets the originals.
-  const forSale = Boolean(work.is_for_sale && work.price_idr);
-  const isLocked = (img: WorkImage) => !owned && !img.is_featured;
-  const lockHint = forSale
-    ? 'Beli album ini untuk membuka gambar resolusi penuh.'
-    : 'Pratinjau terbatas — album ini belum tersedia untuk dibeli.';
+  // Everyone sees every image; the owner sees the full-resolution originals.
   const displayUrl = (img: WorkImage) => unlockedUrls[img.id] ?? img.image_url;
+  const sold = sale ? sale.status === 'sold' || sale.status === 'owned' : Boolean(work.sold_at);
 
   return (
     <>
@@ -150,9 +145,6 @@ export default function WorkDetail() {
                   alt={work.title}
                   className="w-full h-full object-contain"
                 />
-                {isLocked(currentImage) && (
-                  <LockedOverlay hint={lockHint} />
-                )}
                 {images.length > 1 && (
                   <>
                     <button
@@ -194,7 +186,6 @@ export default function WorkDetail() {
                         alt={`Thumbnail ${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
-                      {isLocked(img) && <LockedOverlay compact />}
                       {img.is_featured && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                           <Star size={14} className="text-amber-400 fill-current" />
@@ -213,13 +204,18 @@ export default function WorkDetail() {
                   <h1 className="font-serif text-2xl italic mb-3 text-black dark:text-white">
                     {work.title}
                   </h1>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <span className="px-3 py-1 bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 rounded-full font-sans text-[10px] font-bold uppercase tracking-wider text-black/70 dark:text-white/70">
                       {work.category}
                     </span>
                     {images[currentImageIndex].is_featured && (
                       <span className="px-3 py-1 bg-amber-100 dark:bg-amber-950/30 border border-amber-300/60 dark:border-amber-800/40 rounded-full font-sans text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                         <Star size={11} className="inline -mt-0.5 mr-1 fill-current" />Featured
+                      </span>
+                    )}
+                    {sold && (
+                      <span className="px-3 py-1 bg-zinc-950 dark:bg-white rounded-full font-sans text-[10px] font-bold uppercase tracking-wider text-white dark:text-black">
+                        Terjual
                       </span>
                     )}
                   </div>
@@ -238,11 +234,10 @@ export default function WorkDetail() {
                   workId={workId}
                   imageCount={images.length}
                   priceIdr={work.price_idr}
-                  isForSale={work.is_for_sale}
-                  owned={owned}
+                  sale={sale}
                   isLoggedIn={Boolean(user)}
                   onRequireAuth={() => setAuthOpen(true)}
-                  onUnlocked={refreshAccess}
+                  onChanged={refreshAccess}
                   currentImageId={currentImage.id}
                   currentPosition={currentImageIndex + 1}
                 />
