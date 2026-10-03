@@ -3,6 +3,8 @@ import { Cormorant_Garamond, Poppins } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import ErrorBoundary from "./component/ErrorBoundary";
+import InstallPrompt from "./component/InstallPrompt";
+import ServiceWorkerRegister from "./component/ServiceWorkerRegister";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
 
@@ -32,12 +34,23 @@ const augustus = localFont({
 export const metadata: Metadata = {
   title: "BLACKHAND Art | Digital Identity",
   description: "Digital Identity System",
+  applicationName: "Blackhand",
+  // Installed from Safari's "Add to Home Screen": open full-screen under this name.
+  // "default" keeps dark status-bar text on a light bar — the site's default
+  // light theme would hide white "black-translucent" text.
+  appleWebApp: { capable: true, title: "Blackhand", statusBarStyle: "default" },
+  // Stop iOS turning prices and order numbers into tappable phone links.
+  formatDetection: { telephone: false },
 };
 
 // viewport-fit=cover exposes env(safe-area-inset-*) so fixed UI (navbar, drawer)
 // can clear notches / home indicators on mobile.
 export const viewport: Viewport = {
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#020617" },
+  ],
 };
 
 export default function RootLayout({
@@ -56,9 +69,11 @@ export default function RootLayout({
           <ThemeProvider>
             <ToastProvider>
               {children}
+              <InstallPrompt />
             </ToastProvider>
           </ThemeProvider>
         </ErrorBoundary>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

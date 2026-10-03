@@ -18,6 +18,7 @@ authentication** layer (email one-time codes + Google OAuth) on top of **Supabas
 - **Exclusive artwork sales** — every image is shown clean to everyone. A work for sale is sold to exactly **one** buyer: checkout reserves it for 30 minutes, and once paid it shows as *Terjual* — still viewable, but nobody else can buy or download it. The buyer downloads the full-resolution originals (JPG, ZIP, PDF, or straight to Google Drive).
 - **Merchandise shop** — `/shop` sells accessories and merchandise with stock, direct checkout via Midtrans, and a flat shipping fee the admin sets. Buyers follow their orders (and tracking numbers) under *Pesanan Saya*.
 - **Admin panel** — works (up to 6 images each, featured cover, price/availability), products (photos, stock, shipping fee), and *Orders & Sales*: ship merch orders with courier + tracking number, see who bought each work, and spot payments that need a refund.
+- **Installable (PWA)** — phones can add Blackhand to the home screen and open it full-screen like an app: web app manifest, brand icons generated from the project's Augustus font, a one-tap "Pasang" suggestion on Android/Chrome and Share → *Add to Home Screen* steps on iOS, and a branded offline page.
 - **Polished UX** — light/dark theme, responsive/mobile-first layouts, toasts, skeletons, and an error boundary.
 
 ## Tech stack
@@ -237,6 +238,21 @@ npm test
 ```
 
 Component and hook tests live in `__tests__/` (Jest + React Testing Library, jsdom).
+
+## Progressive Web App
+
+| Piece | Where |
+| --- | --- |
+| Manifest (`/manifest.webmanifest`) | `app/manifest.ts` |
+| Icons (`/icon/32`, `/icon/192`, `/icon/512`, `/apple-icon`, `/maskable-icon.png`) | `app/icon.tsx`, `app/apple-icon.tsx`, `app/maskable-icon.png/route.tsx` — all drawn by `app/lib/brandIcon.tsx` and rendered once at build |
+| Service worker | `public/sw.js`, registered by `app/component/ServiceWorkerRegister.tsx` (production only) |
+| Offline page | `public/offline.html` |
+| Install suggestion | `app/component/InstallPrompt.tsx`, rules in `app/lib/pwa.ts` |
+
+- **What the service worker caches, on purpose, is very little:** only content-hashed build files under `/_next/static/` (cache-first) and the offline page. Pages, API routes, Supabase images, Midtrans and downloads always go to the network — sessions, payments and paid files must never come from a cache. A navigation that fails offline shows `offline.html`.
+- **Changing `sw.js` or `offline.html`?** Bump `VERSION` at the top of `sw.js`; old caches are deleted when the new worker activates. `/sw.js` is served `no-cache` (see `next.config.ts`) so phones pick up a new version on their next visit.
+- **In development the worker is unregistered**, not registered: dev build files aren't content-hashed, and a cached copy would fight hot reload. Test PWA behaviour with `npm run build && npm run start`.
+- Installing needs HTTPS in production (localhost is exempt). The install suggestion only appears on touch devices, after a few seconds, never in the admin panel or inside social-app browsers (Instagram, TikTok, Facebook…), and stays hidden for 30 days once dismissed.
 
 ## Notes
 
