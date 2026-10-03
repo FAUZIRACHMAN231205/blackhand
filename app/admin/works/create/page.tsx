@@ -343,7 +343,7 @@ export default function CreateWork() {
 
               <div className="grid grid-cols-2 gap-3 sm:gap-6">
                 {images.map((image, index) => (
-                  <div key={index} className="border-2 border-dashed border-black/10 dark:border-white/15 rounded-xl p-4 hover:border-violet-500/30 transition-colors">
+                  <div key={index} className="border-2 border-dashed border-black/10 dark:border-white/15 rounded-xl p-3 sm:p-4 hover:border-violet-500/30 transition-colors">
                     <div className="relative">
                       {image.preview ? (
                         <div className="space-y-3">
@@ -356,7 +356,7 @@ export default function CreateWork() {
                             <button
                               type="button"
                               onClick={() => handleImageRemove(index)}
-                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-lg hover:bg-rose-500/20 transition-colors font-sans text-xs font-bold"
+                              className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 px-2 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-lg hover:bg-rose-500/20 transition-colors font-sans text-[11px] sm:text-xs font-bold"
                             >
                               <X size={14} />
                               Remove
@@ -364,7 +364,7 @@ export default function CreateWork() {
                             <button
                               type="button"
                               onClick={() => handleSetFeatured(index)}
-                              className={`flex-1 px-3 py-2 rounded-lg transition-colors font-sans text-xs font-bold ${
+                              className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 px-2 text-center leading-tight rounded-lg transition-colors font-sans text-[11px] sm:text-xs font-bold ${
                                 image.isFeatured
                                   ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300/60 dark:border-amber-800/50'
                                   : 'bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10'

@@ -325,13 +325,13 @@ export default function EditWork() {
                       alt={`Work image ${image.display_order}`}
                       className="w-full h-48 object-cover"
                     />
-                    <div className="p-4 space-y-2">
+                    <div className="p-3 sm:p-4 space-y-2">
                       <p className="font-sans text-xs text-black/50 dark:text-white/50">Image {image.display_order}</p>
                       <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           type="button"
                           onClick={() => handleSetFeatured(image.id)}
-                          className={`flex-1 px-3 py-2 rounded-lg transition-colors font-sans text-xs font-bold ${
+                          className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 px-2 text-center leading-tight rounded-lg transition-colors font-sans text-[11px] sm:text-xs font-bold ${
                             image.is_featured
                               ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300/60 dark:border-amber-800/50'
                               : 'bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10'
@@ -342,7 +342,7 @@ export default function EditWork() {
                         <button
                           type="button"
                           onClick={() => setPendingDeleteImage(image)}
-                          className="flex-1 px-3 py-2 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-lg hover:bg-rose-500/20 transition-colors font-sans text-xs font-bold"
+                          className="flex min-h-[44px] flex-1 items-center justify-center px-2 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-lg hover:bg-rose-500/20 transition-colors font-sans text-[11px] sm:text-xs font-bold"
                         >
                           Delete
                         </button>
