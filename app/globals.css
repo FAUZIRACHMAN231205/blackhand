@@ -25,6 +25,15 @@
   --font-augustus: var(--font-augustus-custom), serif;
 }
 
+/* Swipeable rows (category filters, tab bars) scroll by touch; a desktop-style
+   scrollbar under them only adds clutter. */
+@utility hide-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 body {
   font-family: var(--font-serif);
   /* Mencegah scroll horizontal */

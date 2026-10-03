@@ -196,7 +196,8 @@ export default function DashboardView({ user }: { user: User }) {
             )}
 
             <div className="min-w-0 flex-1">
-              <h2 className="line-clamp-2 break-words font-serif text-xl font-semibold leading-tight tracking-tight sm:text-2xl">
+              {/* Three lines: a long uppercase name needs them on the narrowest phones. */}
+              <h2 className="line-clamp-3 break-words font-serif text-xl font-semibold leading-tight tracking-tight sm:text-2xl">
                 {displayName}
               </h2>
               {user.full_name && (
@@ -239,11 +240,12 @@ export default function DashboardView({ user }: { user: User }) {
           {/* Account at a glance */}
           <dl className="grid grid-cols-3 divide-x divide-slate-200/70 rounded-2xl border border-slate-200/70 bg-white/70 py-3 backdrop-blur-md dark:divide-slate-800/60 dark:border-slate-800/50 dark:bg-slate-900/60">
             {facts.map((fact) => (
-              <div key={fact.label} className="min-w-0 px-3 text-center sm:px-4">
-                <dt className="truncate font-sans text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              // Wrap rather than truncate: on 320px phones a date won't fit one line.
+              <div key={fact.label} className="min-w-0 px-2 text-center sm:px-4">
+                <dt className="font-sans text-[10px] font-bold uppercase leading-tight tracking-wider text-slate-400 dark:text-slate-500">
                   {fact.label}
                 </dt>
-                <dd className={`mt-0.5 truncate font-sans text-[13px] font-semibold sm:text-sm ${fact.tone ?? ''}`}>
+                <dd className={`mt-1 font-sans text-[13px] font-semibold leading-tight sm:text-sm ${fact.tone ?? ''}`}>
                   {fact.value}
                 </dd>
               </div>

@@ -112,7 +112,7 @@ export default function AdminDashboard() {
         <div className="max-w-6xl mx-auto">
           <div className="mb-12">
             <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-2">Admin Panel</h1>
-            <p className="font-sans text-sm text-black/60 dark:text-white/60">
+            <p className="font-sans text-sm text-black/60 [overflow-wrap:anywhere] dark:text-white/60">
               Welcome, <span className="text-black/80 dark:text-white/80">{user.email}</span>
             </p>
           </div>
@@ -142,11 +142,13 @@ export default function AdminDashboard() {
                   index === statCards.length - 1 ? 'col-span-2 lg:col-span-1' : ''
                 }`}
               >
-                <div className="flex items-center gap-2 mb-3">
+                {/* Phones: icon above the label — a half-width card can't fit both on one line. */}
+                <div className="flex flex-col items-start gap-2 mb-3 sm:flex-row sm:items-center">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-violet-500/10 text-violet-500 dark:text-violet-400 shrink-0">
                     <stat.icon size={16} strokeWidth={1.5} />
                   </div>
-                  <h3 className="font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-black/60 dark:text-white/60">
+                  {/* Two lines tall on phones, so one- and two-line labels keep the numbers level. */}
+                  <h3 className="min-w-0 min-h-[2.75em] font-sans text-[10px] font-bold uppercase leading-snug tracking-[0.15em] text-black/60 [overflow-wrap:anywhere] dark:text-white/60 sm:min-h-0">
                     {stat.label}
                   </h3>
                 </div>

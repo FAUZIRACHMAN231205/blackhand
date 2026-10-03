@@ -231,9 +231,9 @@ export default function AdminProducts() {
               {products.map((product) => (
                 <div
                   key={product.id}
-                  className="flex items-center gap-4 rounded-2xl border border-black/5 bg-white/80 p-4 shadow-sm transition-all hover:border-violet-500/30 dark:border-white/10 dark:bg-zinc-950/60"
+                  className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white/80 p-3 shadow-sm transition-all hover:border-violet-500/30 dark:border-white/10 dark:bg-zinc-950/60 sm:gap-4 sm:p-4"
                 >
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-black/5 dark:bg-white/5 sm:h-16 sm:w-16">
                     {product.cover_image_url ? (
                       <img src={product.cover_image_url} alt="" className="h-full w-full object-cover" />
                     ) : (
@@ -244,7 +244,7 @@ export default function AdminProducts() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className="font-serif text-lg italic truncate">{product.name}</h3>
+                      <h3 className="line-clamp-2 font-serif text-base italic leading-snug sm:text-lg">{product.name}</h3>
                       {!product.is_published && (
                         <span className="px-2 py-0.5 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-full font-sans text-[9px] font-bold uppercase tracking-wider text-black/60 dark:text-white/60">
                           Hidden
@@ -263,11 +263,22 @@ export default function AdminProducts() {
                       </span>
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Link href={`/admin/products/${product.id}/edit`} className="p-2.5 hover:bg-violet-500/10 rounded-xl transition-colors" title="Edit">
+                  {/* Stacked on phones so the name and price keep a usable width. */}
+                  <div className="flex shrink-0 flex-col items-center gap-1 sm:flex-row">
+                    <Link
+                      href={`/admin/products/${product.id}/edit`}
+                      aria-label={`Edit ${product.name}`}
+                      className="flex h-11 w-11 items-center justify-center hover:bg-violet-500/10 rounded-xl transition-colors"
+                      title="Edit"
+                    >
                       <Edit2 size={16} strokeWidth={1.5} className="text-black/60 dark:text-white/60" />
                     </Link>
-                    <button onClick={() => setPendingDelete(product)} className="p-2.5 hover:bg-rose-500/10 rounded-xl transition-colors" title="Delete">
+                    <button
+                      onClick={() => setPendingDelete(product)}
+                      aria-label={`Delete ${product.name}`}
+                      className="flex h-11 w-11 items-center justify-center hover:bg-rose-500/10 rounded-xl transition-colors"
+                      title="Delete"
+                    >
                       <Trash2 size={16} strokeWidth={1.5} className="text-rose-500/80 dark:text-rose-400/80" />
                     </button>
                   </div>

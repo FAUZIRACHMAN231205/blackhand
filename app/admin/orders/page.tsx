@@ -112,7 +112,9 @@ function Tabs<T extends string>({
   onChange: (key: T) => void;
 }) {
   return (
-    <div className="mb-6 flex gap-x-6 overflow-x-auto border-b border-black/10 dark:border-white/10">
+    // Swipe sideways on phones; overflow-y-hidden stops the active tab's 1px
+    // underline from making the row scroll vertically too.
+    <div className="hide-scrollbar mb-6 flex gap-x-6 overflow-x-auto overflow-y-hidden border-b border-black/10 dark:border-white/10">
       {tabs.map((tab) => (
         <button
           key={tab.key}
@@ -393,7 +395,8 @@ export default function AdminOrders() {
 
           <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-8">Orders &amp; Sales</h1>
 
-          <div className="mb-8 inline-flex rounded-xl border border-black/10 p-1 dark:border-white/10">
+          {/* Full-width halves on phones, so neither label gets squeezed onto two lines. */}
+          <div className="mb-8 grid w-full grid-cols-2 rounded-xl border border-black/10 p-1 dark:border-white/10 sm:inline-flex sm:w-auto">
             {[
               { key: 'merch' as const, label: 'Merchandise', icon: Package },
               { key: 'sales' as const, label: 'Artwork sales', icon: Receipt },
@@ -401,11 +404,11 @@ export default function AdminOrders() {
               <button
                 key={item.key}
                 onClick={() => setSection(item.key)}
-                className={`flex min-h-[44px] items-center gap-2 rounded-lg px-4 font-sans text-xs font-bold transition-colors ${
+                className={`flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-3 font-sans text-xs font-bold whitespace-nowrap transition-colors sm:px-4 ${
                   section === item.key ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-black/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5'
                 }`}
               >
-                <item.icon size={14} /> {item.label}
+                <item.icon size={14} className="shrink-0" /> {item.label}
               </button>
             ))}
           </div>
