@@ -1,6 +1,7 @@
 import 'server-only';
 import { supabaseAdmin } from './supabaseAdmin';
 import { paymentDeadline, publicSaleStatus, type WorkSaleState } from './sales';
+import type { ShippingDetails } from './shop';
 
 /** True when this buyer owns the work (their order for it is paid). */
 export async function hasPurchased(userId: string, workId: string): Promise<boolean> {
@@ -70,6 +71,47 @@ export async function findResumableWorkCheckout(
   if (paymentDeadline(data.created_at).getTime() - Date.now() < MIN_TIME_TO_PAY_MS) return null;
 
   return { orderId: data.id, token: data.snap_token, expiresAt: data.expires_at };
+}
+
+export interface ResumableProductCheckout extends ResumableCheckout {
+  totalIdr: number;
+}
+
+/**
+ * This buyer's still-payable checkout for the same product, quantity and
+ * address, if any — so pressing "Buy" again reopens that payment instead of
+ * taking stock a second time. A changed quantity or address is a different
+ * order: the old Snap token is locked to the old amount and shipping details.
+ */
+export async function findResumableProductCheckout(
+  userId: string,
+  productId: string,
+  quantity: number,
+  shipping: ShippingDetails
+): Promise<ResumableProductCheckout | null> {
+  const { data } = await supabaseAdmin
+    .from('product_orders')
+    .select('id, snap_token, total_idr, created_at, expires_at')
+    .eq('user_id', userId)
+    .eq('product_id', productId)
+    .eq('status', 'pending')
+    .eq('stock_reserved', true)
+    .eq('quantity', quantity)
+    .eq('recipient_name', shipping.recipient_name)
+    .eq('recipient_phone', shipping.recipient_phone)
+    .eq('shipping_address', shipping.shipping_address)
+    .eq('shipping_city', shipping.shipping_city)
+    .eq('shipping_postal_code', shipping.shipping_postal_code)
+    .eq('notes', shipping.notes)
+    .not('snap_token', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data?.snap_token || !data.expires_at) return null;
+  if (paymentDeadline(data.created_at).getTime() - Date.now() < MIN_TIME_TO_PAY_MS) return null;
+
+  return { orderId: data.id, token: data.snap_token, expiresAt: data.expires_at, totalIdr: data.total_idr };
 }
 
 interface WorkSaleRow {

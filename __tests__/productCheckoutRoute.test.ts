@@ -7,12 +7,16 @@ jest.mock('server-only', () => ({}))
 
 const requireUser = jest.fn()
 const expireStaleOrders = jest.fn()
+const findResumableProductCheckout = jest.fn()
 const createSnapTransaction = jest.fn()
 const rpc = jest.fn()
 let product: Record<string, unknown> | null
 
 jest.mock('@/app/lib/apiAuth', () => ({ requireUser: () => requireUser() }))
-jest.mock('@/app/lib/orders', () => ({ expireStaleOrders: () => expireStaleOrders() }))
+jest.mock('@/app/lib/orders', () => ({
+  expireStaleOrders: () => expireStaleOrders(),
+  findResumableProductCheckout: (...a: unknown[]) => findResumableProductCheckout(...a),
+}))
 jest.mock('@/app/lib/midtrans', () => ({
   ...jest.requireActual('@/app/lib/midtrans'),
   isMidtransConfigured: () => true,
@@ -70,6 +74,7 @@ describe('POST /api/shop/products/[id]/checkout', () => {
     jest.clearAllMocks()
     requireUser.mockResolvedValue({ user: { id: 'buyer', email: 'buyer@example.com', full_name: 'Buyer' } })
     product = { id: 'p1', is_published: true }
+    findResumableProductCheckout.mockResolvedValue(null)
     rpc.mockResolvedValue({ data: [ORDER], error: null })
     createSnapTransaction.mockResolvedValue({ token: 'snap-token', redirectUrl: 'https://snap' })
   })
@@ -94,6 +99,39 @@ describe('POST /api/shop/products/[id]/checkout', () => {
         shipping: expect.objectContaining({ city: 'Karawang', postalCode: '41361' }),
       })
     )
+  })
+
+  it('reopens the same unpaid order instead of taking stock again', async () => {
+    findResumableProductCheckout.mockResolvedValue({
+      orderId: 'm0',
+      token: 'old-token',
+      expiresAt: 'x',
+      totalIdr: 170000,
+    })
+
+    const res = await checkout({ quantity: 2, ...SHIPPING })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ orderId: 'm0', token: 'old-token', totalIdr: 170000, resumed: true })
+    // Matched on the same buyer, product, quantity and address.
+    expect(findResumableProductCheckout).toHaveBeenCalledWith(
+      'buyer',
+      'p1',
+      2,
+      expect.objectContaining({ shipping_city: 'Karawang', shipping_postal_code: '41361' })
+    )
+    expect(rpc).not.toHaveBeenCalled()
+    expect(createSnapTransaction).not.toHaveBeenCalled()
+  })
+
+  it('looks for a resumable order only after sweeping lapsed ones', async () => {
+    const calls: string[] = []
+    expireStaleOrders.mockImplementation(async () => void calls.push('expire'))
+    findResumableProductCheckout.mockImplementation(async () => (calls.push('find'), null))
+
+    await checkout({ quantity: 2, ...SHIPPING })
+
+    expect(calls).toEqual(['expire', 'find'])
   })
 
   it('leaves out the shipping line when shipping is free', async () => {

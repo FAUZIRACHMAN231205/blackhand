@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { requireUser } from '@/app/lib/apiAuth';
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin';
-import { expireStaleOrders } from '@/app/lib/orders';
+import { expireStaleOrders, findResumableProductCheckout } from '@/app/lib/orders';
 import {
   createSnapTransaction,
   isMidtransConfigured,
@@ -25,7 +25,8 @@ interface CreatedOrder {
 
 /**
  * Buy one product now: takes the units off stock for the payment window and
- * opens a Midtrans Snap checkout for product + flat shipping.
+ * opens a Midtrans Snap checkout for product + flat shipping. Repeating the
+ * same order while it is still payable resumes it instead.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireUser();
@@ -62,6 +63,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // Return any stock held by lapsed checkouts before deciding it has run out.
   await expireStaleOrders();
+
+  // Pressing "Buy" again with the same order reopens its payment rather than
+  // taking the stock a second time.
+  const resumable = await findResumableProductCheckout(auth.user.id, id, quantity, shipping.value);
+  if (resumable) {
+    return NextResponse.json({
+      orderId: resumable.orderId,
+      token: resumable.token,
+      totalIdr: resumable.totalIdr,
+      resumed: true,
+    });
+  }
 
   const providerOrderId = `${PRODUCT_ORDER_PREFIX}${crypto.randomUUID()}`;
   const { data: created, error: createError } = await supabaseAdmin.rpc('create_product_order', {
