@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/app/lib/apiAuth';
 import { supabaseAdmin } from '@/app/lib/supabaseAdmin';
 import { removeProductImages } from '@/app/lib/storage';
-import { validateProductInput } from '@/app/lib/shop';
+import { validateProductInput, validateSalePrice } from '@/app/lib/shop';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
@@ -37,10 +37,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const invalid = validateProductInput(body, true);
   if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
 
+  // Changing only one of the two prices must still leave a valid pair: raising
+  // the price above a stored compare-at price would otherwise list the product
+  // under "Diskon" with no discount to show.
+  if ((body.price_idr === undefined) !== (body.compare_at_price_idr === undefined)) {
+    const { data: current } = await supabaseAdmin
+      .from('products')
+      .select('price_idr, compare_at_price_idr')
+      .eq('id', id)
+      .maybeSingle();
+    if (current) {
+      const nextPrice = (body.price_idr ?? current.price_idr) as number;
+      const nextCompareAt = body.compare_at_price_idr !== undefined ? body.compare_at_price_idr : current.compare_at_price_idr;
+      const saleError = validateSalePrice(nextPrice, nextCompareAt);
+      if (saleError) return NextResponse.json({ error: saleError }, { status: 400 });
+    }
+  }
+
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.name !== undefined) updates.name = String(body.name).trim();
   if (typeof body.description === 'string') updates.description = body.description.trim();
   if (body.price_idr !== undefined) updates.price_idr = body.price_idr;
+  if (body.compare_at_price_idr !== undefined) updates.compare_at_price_idr = body.compare_at_price_idr;
   if (body.stock !== undefined) updates.stock = body.stock;
   if (body.is_published !== undefined) updates.is_published = body.is_published;
 

@@ -13,6 +13,7 @@ import { useToast } from '../../context/ToastContext';
 import { formatIdr } from '../../lib/categories';
 import { PAYMENT_WINDOW_MINUTES } from '../../lib/sales';
 import {
+  discountPercent,
   EMPTY_SHIPPING,
   MAX_ORDER_QUANTITY,
   parseShippingDetails,
@@ -84,6 +85,7 @@ export default function ProductDetail() {
   }
 
   const soldOut = product.stock <= 0;
+  const pctOff = discountPercent(product.price_idr, product.compare_at_price_idr);
   const maxQuantity = Math.max(1, Math.min(MAX_ORDER_QUANTITY, product.stock));
   const subtotal = product.price_idr * quantity;
   const photo = images[current]?.image_url ?? product.cover_image_url;
@@ -206,7 +208,19 @@ export default function ProductDetail() {
             <div className="space-y-6">
               <div>
                 <h1 className="mb-2 font-serif text-3xl italic md:text-4xl">{product.name}</h1>
-                <p className="font-sans text-2xl font-black">{formatIdr(product.price_idr)}</p>
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <p className="font-sans text-2xl font-black">{formatIdr(product.price_idr)}</p>
+                  {pctOff !== null && (
+                    <>
+                      <p className="font-sans text-base text-black/40 line-through dark:text-white/40">
+                        {formatIdr(product.compare_at_price_idr as number)}
+                      </p>
+                      <span className="rounded-full bg-rose-600 px-2.5 py-1 font-sans text-[10px] font-black uppercase tracking-wider text-white">
+                        −{pctOff}%
+                      </span>
+                    </>
+                  )}
+                </div>
                 <p
                   className={`mt-1 font-sans text-xs font-bold ${
                     soldOut ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'

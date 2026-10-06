@@ -7,6 +7,8 @@ export interface ProductDraft {
   name: string;
   description: string;
   price: string;
+  /** Original price shown struck through. Empty string = not on sale. */
+  compareAtPrice: string;
   stock: string;
   isPublished: boolean;
 }
@@ -15,6 +17,7 @@ export const EMPTY_PRODUCT: ProductDraft = {
   name: '',
   description: '',
   price: '',
+  compareAtPrice: '',
   stock: '0',
   isPublished: true,
 };
@@ -25,6 +28,7 @@ export function productPayload(draft: ProductDraft) {
     name: draft.name.trim(),
     description: draft.description.trim(),
     price_idr: draft.price === '' ? null : Number(draft.price),
+    compare_at_price_idr: draft.compareAtPrice === '' ? null : Number(draft.compareAtPrice),
     stock: draft.stock === '' ? null : Number(draft.stock),
     is_published: draft.isPublished,
   };
@@ -78,7 +82,7 @@ export default function ProductFields({
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
           <label htmlFor="product-price" className={adminLabelClass}>Price (IDR) *</label>
           <input
@@ -94,6 +98,24 @@ export default function ProductFields({
           />
           <p className="mt-1.5 font-sans text-[11px] text-black/60 dark:text-white/60">
             {price > 0 ? formatIdr(price) : `Minimum ${formatIdr(MIN_PRICE_IDR)}`}
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="product-compare-price" className={adminLabelClass}>Compare-at price</label>
+          <input
+            id="product-compare-price"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1000}
+            value={draft.compareAtPrice}
+            onChange={(e) => set('compareAtPrice', e.target.value)}
+            placeholder="Optional"
+            className={adminInputClass}
+          />
+          <p className="mt-1.5 font-sans text-[11px] text-black/60 dark:text-white/60">
+            Set higher than price to show a sale badge.
           </p>
         </div>
 

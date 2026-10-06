@@ -18,7 +18,9 @@ export async function GET(request: NextRequest) {
 
   const { data, error, count } = await supabaseAdmin
     .from('products')
-    .select('id, name, price_idr, stock, is_published, cover_image_url, created_at', { count: 'exact' })
+    .select('id, name, price_idr, compare_at_price_idr, stock, is_published, cover_image_url, created_at', {
+      count: 'exact',
+    })
     .order('created_at', { ascending: false })
     .range(from, from + ADMIN_WORKS_PAGE_SIZE - 1);
 
@@ -55,6 +57,7 @@ export async function POST(request: NextRequest) {
       name: String(body.name).trim(),
       description: typeof body.description === 'string' ? body.description.trim() : '',
       price_idr: body.price_idr,
+      compare_at_price_idr: body.compare_at_price_idr ?? null,
       stock: body.stock,
       is_published: body.is_published ?? true,
       created_by: auth.user.id,

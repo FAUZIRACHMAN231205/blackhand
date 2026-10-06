@@ -34,10 +34,16 @@
   }
 }
 
+/* overflow-x belongs on html, not body: Safari/WebKit has a long-standing bug
+   where any non-"visible" overflow on <body> re-anchors `position: fixed`
+   descendants (the navbar) to body's scroll box instead of the viewport, so
+   they visibly scroll with the page instead of staying pinned. */
+html {
+  overflow-x: hidden;
+}
+
 body {
   font-family: var(--font-serif);
-  /* Mencegah scroll horizontal */
-  overflow-x: hidden;
 }
 
 /* Kustom Animasi untuk Ambient Glow */
@@ -61,6 +67,29 @@ body {
 
 .animate-float-slow {
   animation: float 12s ease-in-out infinite;
+}
+
+/* Announcement bar ticker: content is rendered twice, so translating by
+   exactly half its width loops with no visible seam or jump. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  width: max-content;
+  animation: marquee 22s linear infinite;
+}
+
+/* Respect "reduce motion": the first messages simply sit still. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
 }
 
 .animate-float-slow-reverse {

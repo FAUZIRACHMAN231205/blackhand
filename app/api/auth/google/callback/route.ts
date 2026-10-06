@@ -17,9 +17,18 @@ interface GoogleUserInfo {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = request.nextUrl;
+  const { searchParams, origin: requestOrigin } = request.nextUrl;
   const code = searchParams.get('code');
   const state = searchParams.get('state');
+
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+  // Behind a reverse proxy/tunnel the request's Host header can resolve to the
+  // local bind address (e.g. 0.0.0.0) instead of the public URL. GOOGLE_REDIRECT_URI
+  // is the one address we know Google actually reached us on, so prefer its origin.
+  const origin = redirectUri ? new URL(redirectUri).origin : requestOrigin;
 
   const cookieStore = await cookies();
   const expectedState = cookieStore.get(OAUTH_STATE_COOKIE)?.value;
@@ -28,10 +37,6 @@ export async function GET(request: NextRequest) {
   if (!code || !state || !expectedState || state !== expectedState) {
     return NextResponse.redirect(new URL('/?authError=google_state_mismatch', origin));
   }
-
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {
     return NextResponse.redirect(new URL('/?authError=google_not_configured', origin));

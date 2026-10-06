@@ -15,6 +15,7 @@ export interface ProductInput {
   name?: unknown;
   description?: unknown;
   price_idr?: unknown;
+  compare_at_price_idr?: unknown;
   stock?: unknown;
   is_published?: unknown;
 }
@@ -29,7 +30,7 @@ function isWholeNumber(value: unknown): value is number {
  * Admin-facing, so in English like the rest of the admin panel.
  */
 export function validateProductInput(input: ProductInput, partial = false): string | null {
-  const { name, description, price_idr, stock, is_published } = input;
+  const { name, description, price_idr, compare_at_price_idr, stock, is_published } = input;
 
   if (!partial || name !== undefined) {
     if (typeof name !== 'string' || !name.trim()) return 'Product name is required';
@@ -47,6 +48,15 @@ export function validateProductInput(input: ProductInput, partial = false): stri
       return `Price must be at least Rp ${MIN_PRICE_IDR.toLocaleString('id-ID')}`;
     }
   }
+  if (compare_at_price_idr !== undefined && compare_at_price_idr !== null) {
+    if (!isWholeNumber(compare_at_price_idr) || compare_at_price_idr < 0) {
+      return 'Compare-at price must be a whole number of rupiah, 0 or more';
+    }
+  }
+  if (isWholeNumber(price_idr)) {
+    const saleError = validateSalePrice(price_idr, compare_at_price_idr);
+    if (saleError) return saleError;
+  }
   if (!partial || stock !== undefined) {
     if (!isWholeNumber(stock) || stock < 0) return 'Stock must be a whole number, 0 or more';
     if (stock > MAX_STOCK) return `Stock must be at most ${MAX_STOCK.toLocaleString('id-ID')}`;
@@ -55,6 +65,33 @@ export function validateProductInput(input: ProductInput, partial = false): stri
     return 'Published must be true or false';
   }
   return null;
+}
+
+/**
+ * A compare-at price only makes sense above the selling price: anything else
+ * would put a product in the shop's "Diskon" list without a visible discount.
+ * Empty (null/undefined) means "not on sale" and is always fine.
+ */
+export function validateSalePrice(priceIdr: number, compareAtPriceIdr: unknown): string | null {
+  if (compareAtPriceIdr === undefined || compareAtPriceIdr === null) return null;
+  if (typeof compareAtPriceIdr === 'number' && compareAtPriceIdr <= priceIdr) {
+    return 'Compare-at price must be higher than the price (or left empty)';
+  }
+  return null;
+}
+
+/** Percentage off, rounded, when compareAt is a real discount over price — else null. */
+export function discountPercent(priceIdr: number, compareAtPriceIdr: number | null | undefined): number | null {
+  if (!compareAtPriceIdr || compareAtPriceIdr <= priceIdr) return null;
+  return Math.round(((compareAtPriceIdr - priceIdr) / compareAtPriceIdr) * 100);
+}
+
+/** A product counts as a fresh arrival for this many days after creation. */
+export const NEW_ARRIVAL_DAYS = 14;
+
+export function isNewArrival(createdAt: string): boolean {
+  const ageMs = Date.now() - new Date(createdAt).getTime();
+  return ageMs >= 0 && ageMs <= NEW_ARRIVAL_DAYS * 24 * 60 * 60 * 1000;
 }
 
 export function validateShippingFee(fee: unknown): string | null {

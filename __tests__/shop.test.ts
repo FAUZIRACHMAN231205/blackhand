@@ -1,5 +1,9 @@
 import {
   validateProductInput,
+  validateSalePrice,
+  discountPercent,
+  isNewArrival,
+  NEW_ARRIVAL_DAYS,
   validateShippingFee,
   validateQuantity,
   parseShippingDetails,
@@ -34,6 +38,49 @@ describe('validateProductInput', () => {
   it('lets a partial update leave fields out', () => {
     expect(validateProductInput({ stock: 3 }, true)).toBeNull()
     expect(validateProductInput({ price_idr: 0 }, true)).toMatch(/at least/)
+  })
+})
+
+describe('compare-at (sale) price', () => {
+  const base = { name: 'Tote', price_idr: 75000, stock: 3 }
+
+  it('accepts a compare-at price above the price, or none at all', () => {
+    expect(validateProductInput({ ...base, compare_at_price_idr: 100000 })).toBeNull()
+    expect(validateProductInput({ ...base, compare_at_price_idr: null })).toBeNull()
+    expect(validateProductInput(base)).toBeNull()
+  })
+
+  it('rejects a compare-at price at or below the price — no visible discount', () => {
+    expect(validateProductInput({ ...base, compare_at_price_idr: 75000 })).toMatch(/higher than the price/)
+    expect(validateProductInput({ ...base, compare_at_price_idr: 50000 })).toMatch(/higher than the price/)
+  })
+
+  it('checks the pair the stored product would end up with', () => {
+    // e.g. raising the price to 120.000 while 100.000 is stored as compare-at
+    expect(validateSalePrice(120000, 100000)).toMatch(/higher than the price/)
+    expect(validateSalePrice(90000, 100000)).toBeNull()
+    expect(validateSalePrice(90000, null)).toBeNull()
+  })
+
+  it('rounds the percentage off, and reports none without a real discount', () => {
+    expect(discountPercent(75000, 100000)).toBe(25)
+    expect(discountPercent(66000, 99000)).toBe(33)
+    expect(discountPercent(75000, 75000)).toBeNull()
+    expect(discountPercent(75000, null)).toBeNull()
+  })
+})
+
+describe('isNewArrival', () => {
+  const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString()
+
+  it('marks products added within the window as new', () => {
+    expect(isNewArrival(daysAgo(1))).toBe(true)
+    expect(isNewArrival(daysAgo(NEW_ARRIVAL_DAYS - 1))).toBe(true)
+  })
+
+  it('stops after the window, and ignores future dates', () => {
+    expect(isNewArrival(daysAgo(NEW_ARRIVAL_DAYS + 1))).toBe(false)
+    expect(isNewArrival(daysAgo(-2))).toBe(false)
   })
 })
 
