@@ -2,7 +2,8 @@ import 'server-only';
 import { supabaseAdmin } from './supabaseAdmin';
 
 /** Columns a shopper may see. */
-export const PUBLIC_PRODUCT_COLUMNS = 'id, name, description, price_idr, stock, cover_image_url, created_at';
+export const PUBLIC_PRODUCT_COLUMNS =
+  'id, name, description, price_idr, compare_at_price_idr, stock, cover_image_url, created_at';
 
 /** The flat shipping fee the admin has set, in rupiah. */
 export async function getShippingFee(): Promise<number> {

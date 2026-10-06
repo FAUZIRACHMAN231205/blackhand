@@ -36,6 +36,8 @@ export interface Product {
   name: string;
   description: string;
   price_idr: number;
+  /** Original price shown struck through next to price_idr. Null when not on sale. */
+  compare_at_price_idr: number | null;
   stock: number;
   cover_image_url: string | null;
   created_at: string;

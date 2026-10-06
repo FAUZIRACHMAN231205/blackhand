@@ -52,6 +52,8 @@ export default function EditProduct() {
         name: data.product.name,
         description: data.product.description ?? '',
         price: String(data.product.price_idr),
+        compareAtPrice:
+          data.product.compare_at_price_idr != null ? String(data.product.compare_at_price_idr) : '',
         stock: String(data.product.stock),
         isPublished: data.product.is_published,
       });
