@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../component/Navbar';
@@ -11,7 +11,7 @@ import Link from 'next/link';
 import RatingStars from '../component/RatingStars';
 import { LoadingSpinner, SkeletonGrid } from '../component/LoadingStates';
 import type { Work } from '../types';
-import { WORK_CATEGORIES, formatIdr } from '../lib/categories';
+import { WORK_CATEGORIES, isValidCategory, formatIdr } from '../lib/categories';
 import { GALLERY_PAGE_SIZE, pageRange, splitPage } from '../lib/pagination';
 
 const WORK_COLUMNS =
@@ -83,9 +83,15 @@ async function loadRatingStats(ids: string[]): Promise<RatingStats> {
   }
 }
 
-export default function Gallery() {
+function GalleryContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // The URL is the one source of truth for the category, so the navbar's
+  // dropdown links (/gallery?category=Paintings) work even when the gallery is
+  // already open, and a filtered view survives a refresh or a shared link.
+  const categoryParam = searchParams.get('category');
+  const selectedCategory = isValidCategory(categoryParam) ? categoryParam : null;
   const [works, setWorks] = useState<Work[]>([]);
   const [featuredWorks, setFeaturedWorks] = useState<Work[]>([]);
   const [publishedCount, setPublishedCount] = useState<number | null>(null);
@@ -93,8 +99,19 @@ export default function Gallery() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingWorks, setLoadingWorks] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [ratingStats, setRatingStats] = useState<RatingStats>({});
+
+  // A new category starts again from an empty first page. Adjusted during
+  // render rather than in an effect, so the old category's cards never paint
+  // under the new heading.
+  const [shownCategory, setShownCategory] = useState(selectedCategory);
+  if (selectedCategory !== shownCategory) {
+    setShownCategory(selectedCategory);
+    setWorks([]);
+    setPage(0);
+    setHasMore(false);
+    setLoadingWorks(true);
+  }
   const [authOpen, setAuthOpen] = useState(false);
 
   const CATEGORIES = WORK_CATEGORIES;
@@ -144,11 +161,9 @@ export default function Gallery() {
 
   const showCategory = (category: string | null) => {
     if (category === selectedCategory) return;
-    setSelectedCategory(category);
-    setWorks([]);
-    setPage(0);
-    setHasMore(false);
-    setLoadingWorks(true);
+    router.replace(category ? `/gallery?category=${encodeURIComponent(category)}` : '/gallery', {
+      scroll: false,
+    });
   };
 
   const loadMore = () => {
@@ -351,5 +366,13 @@ export default function Gallery() {
         </div>
       </main>
     </>
+  );
+}
+
+export default function Gallery() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <GalleryContent />
+    </Suspense>
   );
 }
