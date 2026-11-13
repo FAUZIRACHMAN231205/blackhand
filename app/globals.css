@@ -25,6 +25,45 @@
   --font-augustus: var(--font-augustus-custom), serif;
 }
 
+/* ─── Blackhand design tokens (docs/DESIGN.md) ──────────────────────────────
+   Monochrome editorial with one accent, dark red. Raw values live here and
+   flip with the `.dark` class the theme script sets; `@theme inline` turns
+   them into utilities (bg-paper, text-ink, border-line, bg-accent, …) that
+   follow the theme without any dark: variants.
+   New UI uses only these. No violet, slate or one-off hex values. */
+:root {
+  --bh-paper: #ffffff;       /* page background */
+  --bh-ink: #0a0a0a;         /* text, primary buttons, solid tags */
+  --bh-mute: #6b6b6b;        /* secondary text */
+  --bh-line: #e4e4e4;        /* 1px dividers */
+  --bh-sheet: #f4f4f4;       /* image placeholders, quiet panels */
+  --bh-accent: #b91c1c;      /* fill: the one Beli/Bayar button, discount tag */
+  --bh-on-accent: #ffffff;
+  --bh-accent-text: #b91c1c; /* text: active link, error message, focus ring */
+}
+
+:root.dark {
+  --bh-paper: #0a0a0a;
+  --bh-ink: #f5f5f5;
+  --bh-mute: #9b9b9b;
+  --bh-line: #262626;
+  --bh-sheet: #161616;
+  --bh-accent: #dc2626;
+  --bh-on-accent: #ffffff;
+  --bh-accent-text: #f87171;
+}
+
+@theme inline {
+  --color-paper: var(--bh-paper);
+  --color-ink: var(--bh-ink);
+  --color-mute: var(--bh-mute);
+  --color-line: var(--bh-line);
+  --color-sheet: var(--bh-sheet);
+  --color-accent: var(--bh-accent);
+  --color-on-accent: var(--bh-on-accent);
+  --color-accent-text: var(--bh-accent-text);
+}
+
 /* Swipeable rows (category filters, tab bars) scroll by touch; a desktop-style
    scrollbar under them only adds clutter. */
 @utility hide-scrollbar {
