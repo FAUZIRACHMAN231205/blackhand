@@ -21,23 +21,23 @@ describe('validateProductInput', () => {
   })
 
   it('requires a name on create', () => {
-    expect(validateProductInput({ ...valid, name: '  ' })).toMatch(/name/i)
+    expect(validateProductInput({ ...valid, name: '  ' })).toMatch(/Nama/)
   })
 
   it('rejects fractional, string or too-small prices', () => {
-    expect(validateProductInput({ ...valid, price_idr: 12.5 })).toMatch(/whole number/)
-    expect(validateProductInput({ ...valid, price_idr: '75000' })).toMatch(/whole number/)
-    expect(validateProductInput({ ...valid, price_idr: MIN_PRICE_IDR - 1 })).toMatch(/at least/)
+    expect(validateProductInput({ ...valid, price_idr: 12.5 })).toMatch(/bilangan bulat/)
+    expect(validateProductInput({ ...valid, price_idr: '75000' })).toMatch(/bilangan bulat/)
+    expect(validateProductInput({ ...valid, price_idr: MIN_PRICE_IDR - 1 })).toMatch(/minimal/)
   })
 
   it('rejects negative stock but allows zero', () => {
-    expect(validateProductInput({ ...valid, stock: -1 })).toMatch(/Stock/)
+    expect(validateProductInput({ ...valid, stock: -1 })).toMatch(/Stok/)
     expect(validateProductInput({ ...valid, stock: 0 })).toBeNull()
   })
 
   it('lets a partial update leave fields out', () => {
     expect(validateProductInput({ stock: 3 }, true)).toBeNull()
-    expect(validateProductInput({ price_idr: 0 }, true)).toMatch(/at least/)
+    expect(validateProductInput({ price_idr: 0 }, true)).toMatch(/minimal/)
   })
 })
 
@@ -51,13 +51,13 @@ describe('compare-at (sale) price', () => {
   })
 
   it('rejects a compare-at price at or below the price — no visible discount', () => {
-    expect(validateProductInput({ ...base, compare_at_price_idr: 75000 })).toMatch(/higher than the price/)
-    expect(validateProductInput({ ...base, compare_at_price_idr: 50000 })).toMatch(/higher than the price/)
+    expect(validateProductInput({ ...base, compare_at_price_idr: 75000 })).toMatch(/lebih tinggi dari harga jual/)
+    expect(validateProductInput({ ...base, compare_at_price_idr: 50000 })).toMatch(/lebih tinggi dari harga jual/)
   })
 
   it('checks the pair the stored product would end up with', () => {
     // e.g. raising the price to 120.000 while 100.000 is stored as compare-at
-    expect(validateSalePrice(120000, 100000)).toMatch(/higher than the price/)
+    expect(validateSalePrice(120000, 100000)).toMatch(/lebih tinggi dari harga jual/)
     expect(validateSalePrice(90000, 100000)).toBeNull()
     expect(validateSalePrice(90000, null)).toBeNull()
   })

@@ -1,5 +1,5 @@
 import nextConfig from '@/next.config'
-import { ACCOUNT_TABS, LEGACY_REDIRECTS, MAIN_NAV, isActivePath } from '@/app/lib/routes'
+import { ACCOUNT_TABS, ADMIN_TABS, LEGACY_REDIRECTS, MAIN_NAV, activeTab, isActivePath } from '@/app/lib/routes'
 
 describe('site map', () => {
   it('puts artworks first in the main menu', () => {
@@ -38,6 +38,16 @@ describe('retired addresses', () => {
   it('never sends one old address to another old one', () => {
     const sources = new Set(LEGACY_REDIRECTS.map((r) => r.source))
     for (const r of LEGACY_REDIRECTS) expect(sources.has(r.destination)).toBe(false)
+  })
+})
+
+describe('activeTab', () => {
+  it('picks the most specific admin tab for nested pages', () => {
+    expect(activeTab('/admin', ADMIN_TABS)).toBe('/admin')
+    expect(activeTab('/admin/works', ADMIN_TABS)).toBe('/admin/works')
+    expect(activeTab('/admin/works/abc/edit', ADMIN_TABS)).toBe('/admin/works')
+    expect(activeTab('/admin/products/create', ADMIN_TABS)).toBe('/admin/products')
+    expect(activeTab('/gallery', ADMIN_TABS)).toBeNull()
   })
 })
 

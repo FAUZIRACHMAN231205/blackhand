@@ -164,15 +164,15 @@ describe('validatePricing', () => {
   })
 
   it('requires a price before an album can be sold', () => {
-    expect(validatePricing(null, true)).toMatch(/required/)
+    expect(validatePricing(null, true)).toMatch(/wajib/)
   })
 
   it.each([12.5, -1, '15000'])('rejects %p as a price', (price) => {
-    expect(validatePricing(price, false)).toMatch(/whole number/)
+    expect(validatePricing(price, false)).toMatch(/bilangan bulat/)
   })
 
   it('refuses to sell below the minimum price', () => {
-    expect(validatePricing(MIN_PRICE_IDR - 1, true)).toMatch(/at least/)
+    expect(validatePricing(MIN_PRICE_IDR - 1, true)).toMatch(/minimal/)
     expect(validatePricing(MIN_PRICE_IDR, true)).toBeNull()
   })
 

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const { data, error, count } = await supabaseAdmin
     .from('works')
     .select(
-      'id, title, category, is_published, is_featured, created_at, price_idr, is_for_sale, sold_at, reserved_until',
+      'id, title, category, featured_image_url, is_published, is_featured, created_at, price_idr, is_for_sale, sold_at, reserved_until',
       { count: 'exact' }
     )
     .eq('created_by', auth.user.id)

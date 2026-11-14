@@ -30,7 +30,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
       <Navbar onOpenModal={() => {}} />
 
       <main className="min-h-[100dvh] bg-paper px-4 pb-20 pt-20 text-ink sm:px-6 md:px-8 md:pt-28">
-        <div className="mx-auto grid max-w-5xl gap-8">
+        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8">
           {user ? (
             <>
               <PageHeader

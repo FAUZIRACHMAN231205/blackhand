@@ -1,26 +1,12 @@
 'use client';
 
-import { useRouter, useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useAuth } from '../../../../hooks/useAuth';
-import { isAdmin } from '../../../../lib/adminUtils';
-import Navbar from '../../../../component/Navbar';
-import { LoadingSpinner } from '../../../../component/LoadingStates';
+import { useCallback, useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import ConfirmDialog from '../../../../component/ConfirmDialog';
+import { Button, EmptyState, Notice, PageHeader } from '../../../../component/ui';
 import { useToast } from '../../../../context/ToastContext';
-import { ChevronLeft, Star } from 'lucide-react';
-import { WORK_CATEGORIES, MIN_PRICE_IDR, formatIdr } from '../../../../lib/categories';
-
-interface Work {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  is_published: boolean;
-  price_idr: number | null;
-  is_for_sale: boolean;
-  sold_at: string | null;
-}
+import { FormSection, ListSkeleton, PhotoTile, TileButton } from '../../../_components/AdminParts';
+import WorkFields, { EMPTY_WORK, checkWork, workPayload, type WorkDraft, type WorkErrors } from '../../../_components/WorkFields';
 
 interface WorkImage {
   id: string;
@@ -29,360 +15,174 @@ interface WorkImage {
   is_featured: boolean;
 }
 
-const CATEGORIES = WORK_CATEGORIES;
-
-const inputClass =
-  'w-full px-4 py-3.5 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/50 dark:placeholder-white/50 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-base';
-const labelClass = 'block font-sans text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-white/50 mb-2.5';
-const cardClass = 'bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-8 space-y-6 transition-colors shadow-sm backdrop-blur-sm';
-
 export default function EditWork() {
-  const { user, loading } = useAuth();
   const router = useRouter();
-  const params = useParams();
-  const workId = params.id as string;
+  const { id: workId } = useParams<{ id: string }>();
   const { showToast } = useToast();
 
-  const [, setWork] = useState<Work | null>(null);
-  const [workImages, setWorkImages] = useState<WorkImage[]>([]);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Paintings');
-  const [isPublished, setIsPublished] = useState(true);
-  const [isForSale, setIsForSale] = useState(false);
-  const [priceIdr, setPriceIdr] = useState('');
+  const [state, setState] = useState<'loading' | 'ready' | 'missing'>('loading');
+  const [draft, setDraft] = useState<WorkDraft>(EMPTY_WORK);
+  const [errors, setErrors] = useState<WorkErrors>({});
   const [soldAt, setSoldAt] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pendingDeleteImage, setPendingDeleteImage] = useState<WorkImage | null>(null);
-  const [deletingImage, setDeletingImage] = useState(false);
+  const [images, setImages] = useState<WorkImage[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [busyImage, setBusyImage] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<WorkImage | null>(null);
 
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.push('/');
-      } else if (!isAdmin(user)) {
-        router.push('/account');
-      }
-    }
-  }, [user, loading, router]);
-
-  const fetchWork = async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/works/${workId}`);
-
       if (!res.ok) {
-        console.error('Error fetching work:', await res.text());
-        showToast({ type: 'error', message: 'Work not found' });
-        router.push('/admin/works');
+        setState('missing');
         return;
       }
-
-      const { work: workData, images: imagesData } = await res.json();
-
-      setWork(workData);
-      setTitle(workData.title);
-      setDescription(workData.description || '');
-      setCategory(workData.category);
-      setIsPublished(workData.is_published);
-      setIsForSale(Boolean(workData.is_for_sale));
-      setPriceIdr(workData.price_idr == null ? '' : String(workData.price_idr));
-      setSoldAt(workData.sold_at ?? null);
-      setWorkImages(imagesData || []);
+      const { work, images: imageRows } = await res.json();
+      setDraft({
+        title: work.title,
+        description: work.description || '',
+        category: work.category,
+        isPublished: work.is_published,
+        isForSale: Boolean(work.is_for_sale),
+        price: work.price_idr == null ? '' : String(work.price_idr),
+      });
+      setSoldAt(work.sold_at ?? null);
+      setImages(imageRows || []);
+      setState('ready');
     } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error loading work:', error);
+      setState('missing');
     }
-  };
+  }, [workId]);
 
   useEffect(() => {
-    if (user && isAdmin(user)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchWork();
-    }
-  }, [user, workId]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+  }, [load]);
 
-  const confirmDeleteImage = async () => {
-    if (!pendingDeleteImage) return;
-    setDeletingImage(true);
-
-    try {
-      const res = await fetch(`/api/admin/images/${pendingDeleteImage.id}`, { method: 'DELETE' });
-
-      if (!res.ok) {
-        showToast({ type: 'error', message: 'Failed to delete image' });
-        return;
-      }
-
-      setWorkImages((prev) => prev.filter((img) => img.id !== pendingDeleteImage.id));
-      showToast({ type: 'success', message: 'Image deleted successfully' });
-    } catch (error) {
-      console.error('Error:', error);
-      showToast({ type: 'error', message: 'Failed to delete image' });
-    } finally {
-      setDeletingImage(false);
-      setPendingDeleteImage(null);
-    }
-  };
-
-  const handleSetFeatured = async (imageId: string) => {
-    try {
-      const res = await fetch(`/api/admin/images/${imageId}`, { method: 'PATCH' });
-      if (!res.ok) throw new Error(await res.text());
-
-      // Update local state
-      const updatedImages = workImages.map((img) => ({
-        ...img,
-        is_featured: img.id === imageId,
-      }));
-      setWorkImages(updatedImages);
-      showToast({ type: 'success', message: 'Featured image updated' });
-    } catch (error) {
-      console.error('Error:', error);
-      showToast({ type: 'error', message: 'Failed to update featured image' });
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    const fieldErrors = checkWork(draft);
+    setErrors(fieldErrors);
+    setFormError(null);
+    if (Object.keys(fieldErrors).length > 0) {
+      document.getElementById(fieldErrors.title ? 'work-title' : 'work-price')?.focus();
+      return;
+    }
 
+    setSaving(true);
     try {
-      if (!title.trim()) {
-        showToast({ type: 'error', message: 'Title is required' });
-        setIsSubmitting(false);
-        return;
-      }
-
       const res = await fetch(`/api/admin/works/${workId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim(),
-          category,
-          is_published: isPublished,
-          is_for_sale: isForSale,
-          price_idr: priceIdr === '' ? null : Number(priceIdr),
-        }),
+        body: JSON.stringify(workPayload(draft)),
       });
-
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
-        console.error('Update error:', detail);
-        showToast({ type: 'error', message: detail?.error || 'Failed to update work' });
-        setIsSubmitting(false);
+        setFormError(detail?.error || 'Perubahan gagal disimpan.');
         return;
       }
-
-      showToast({ type: 'success', message: 'Work updated successfully!' });
+      showToast({ type: 'success', message: 'Perubahan disimpan.' });
       router.push('/admin/works');
     } catch (error) {
-      console.error('Error:', error);
-      showToast({ type: 'error', message: 'An error occurred' });
-      setIsSubmitting(false);
+      console.error('Update work error:', error);
+      setFormError('Perubahan gagal disimpan. Periksa koneksi Anda.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (loading || isLoading) {
-    return <LoadingSpinner />;
-  }
+  const makeCover = async (image: WorkImage) => {
+    setBusyImage(image.id);
+    try {
+      const res = await fetch(`/api/admin/images/${image.id}`, { method: 'PATCH' });
+      if (!res.ok) throw new Error(await res.text());
+      setImages((prev) => prev.map((img) => ({ ...img, is_featured: img.id === image.id })));
+      showToast({ type: 'success', message: 'Sampul diganti.' });
+    } catch (error) {
+      console.error('Set cover error:', error);
+      showToast({ type: 'error', message: 'Sampul gagal diganti.' });
+    } finally {
+      setBusyImage(null);
+    }
+  };
 
-  if (!user || !isAdmin(user)) {
-    return null;
+  const confirmDeleteImage = async () => {
+    if (!pendingDelete) return;
+    setBusyImage(pendingDelete.id);
+    try {
+      const res = await fetch(`/api/admin/images/${pendingDelete.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(await res.text());
+      setImages((prev) => prev.filter((img) => img.id !== pendingDelete.id));
+      showToast({ type: 'success', message: 'Gambar dihapus.' });
+    } catch (error) {
+      console.error('Delete image error:', error);
+      showToast({ type: 'error', message: 'Gambar gagal dihapus.' });
+    } finally {
+      setBusyImage(null);
+      setPendingDelete(null);
+    }
+  };
+
+  if (state === 'loading') return <ListSkeleton rows={3} label="Memuat karya" />;
+
+  if (state === 'missing') {
+    return (
+      <EmptyState
+        title="Karya tidak ditemukan"
+        description="Karya ini mungkin sudah dihapus."
+        action={<Button href="/admin/works">Kembali ke daftar karya</Button>}
+      />
+    );
   }
 
   return (
-    <>
-      <Navbar onOpenModal={() => {}} />
+    <form onSubmit={save} noValidate className="grid grid-cols-1 gap-10">
+      <PageHeader eyebrow="Admin · Karya" title="Ubah karya" description={draft.title} />
 
-      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors duration-300">
-        <div className="max-w-4xl mx-auto">
-          {/* Back Button */}
-          <button
-            onClick={() => router.push('/admin/works')}
-            className="flex items-center gap-2 py-2 mb-6 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
-          >
-            <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="font-sans text-sm font-medium">Back to Works</span>
-          </button>
+      <WorkFields draft={draft} onChange={setDraft} errors={errors} soldAt={soldAt} />
 
-          {/* Header */}
-          <div className="mb-12">
-            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-2">
-              Edit Work
-            </h1>
+      <FormSection title={`Gambar · ${images.length}`} aside="Perubahan gambar langsung tersimpan.">
+        {images.length === 0 ? (
+          <p className="font-sans text-sm text-mute">Karya ini belum punya gambar.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {images.map((image) => (
+              <PhotoTile key={image.id} src={image.image_url} alt={`Gambar ${image.display_order}`} cover={image.is_featured}>
+                {!image.is_featured && (
+                  <TileButton onClick={() => makeCover(image)} disabled={busyImage !== null}>
+                    Jadikan sampul
+                  </TileButton>
+                )}
+                <TileButton tone="danger" onClick={() => setPendingDelete(image)} disabled={busyImage !== null}>
+                  Hapus
+                </TileButton>
+              </PhotoTile>
+            ))}
           </div>
+        )}
+      </FormSection>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Basic Info */}
-            <div className={cardClass}>
-              <h2 className="font-serif text-lg italic">Work Information</h2>
+      {formError && <Notice tone="error">{formError}</Notice>}
 
-              <div>
-                <label className={labelClass}>Title *</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className={labelClass}>Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={4}
-                  className={`${inputClass} resize-none`}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Category</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className={inputClass}
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Status</label>
-                  <select
-                    value={isPublished ? 'published' : 'unpublished'}
-                    onChange={(e) => setIsPublished(e.target.value === 'published')}
-                    className={inputClass}
-                  >
-                    <option value="published">Published</option>
-                    <option value="unpublished">Unpublished</option>
-                  </select>
-                </div>
-              </div>
-
-              {soldAt && (
-                <p className="rounded-xl border border-black/10 bg-black/[0.03] px-4 py-3 font-sans text-xs text-black/70 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70">
-                  Sold on {new Date(soldAt).toLocaleDateString('id-ID')}. A work has a single buyer, so its
-                  price and availability are fixed now. The buyer is listed under Orders &amp; Sales.
-                </p>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Availability</label>
-                  <select
-                    value={isForSale ? 'sale' : 'not-for-sale'}
-                    onChange={(e) => setIsForSale(e.target.value === 'sale')}
-                    disabled={Boolean(soldAt)}
-                    className={`${inputClass} disabled:opacity-60`}
-                  >
-                    <option value="not-for-sale">Not for sale</option>
-                    <option value="sale">For sale</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Price (IDR)</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    step={1000}
-                    value={priceIdr}
-                    onChange={(e) => setPriceIdr(e.target.value)}
-                    disabled={Boolean(soldAt)}
-                    placeholder="50000"
-                    className={`${inputClass} disabled:opacity-60`}
-                  />
-                  <p className="mt-1.5 font-sans text-[11px] text-black/60 dark:text-white/60">
-                    {priceIdr !== '' && Number(priceIdr) > 0
-                      ? formatIdr(Number(priceIdr))
-                      : `Minimum ${formatIdr(MIN_PRICE_IDR)} when for sale`}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Images */}
-            <div className={cardClass}>
-              <h2 className="font-serif text-lg italic">Images ({workImages.length})</h2>
-
-              <div className="grid grid-cols-2 gap-3 sm:gap-6">
-                {workImages.map((image) => (
-                  <div key={image.id} className="border border-black/10 dark:border-white/10 rounded-xl overflow-hidden transition-colors shadow-sm">
-                    <img
-                      src={image.image_url}
-                      alt={`Work image ${image.display_order}`}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="p-3 sm:p-4 space-y-2">
-                      <p className="font-sans text-xs text-black/50 dark:text-white/50">Image {image.display_order}</p>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSetFeatured(image.id)}
-                          className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 px-2 text-center leading-tight rounded-lg transition-colors font-sans text-[11px] sm:text-xs font-bold ${
-                            image.is_featured
-                              ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300/60 dark:border-amber-800/50'
-                              : 'bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10'
-                          }`}
-                        >
-                          {image.is_featured ? (<><Star size={12} className="fill-current" />Featured</>) : 'Set Featured'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPendingDeleteImage(image)}
-                          className="flex min-h-[44px] flex-1 items-center justify-center px-2 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-lg hover:bg-rose-500/20 transition-colors font-sans text-[11px] sm:text-xs font-bold"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Submit */}
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 px-6 py-3.5 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
-              >
-                {isSubmitting ? 'Updating...' : 'Update Work'}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/admin/works')}
-                className="flex-1 px-6 py-3.5 border border-black/10 dark:border-white/10 text-black dark:text-white rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      </main>
+      <div className="flex flex-wrap items-center gap-3 border-t border-ink pt-6">
+        <Button type="submit" loading={saving}>
+          Simpan perubahan
+        </Button>
+        <Button variant="ghost" href="/admin/works">
+          Batal
+        </Button>
+      </div>
 
       <ConfirmDialog
-        isOpen={pendingDeleteImage !== null}
-        title="Delete image?"
-        message="This image will be permanently removed from the work."
-        confirmLabel="Delete"
-        loading={deletingImage}
+        isOpen={pendingDelete !== null}
+        title="Hapus gambar?"
+        message="Gambar ini akan dihapus permanen dari karya dan tidak bisa dikembalikan."
+        confirmLabel="Hapus"
+        loading={busyImage !== null}
         onConfirm={confirmDeleteImage}
-        onCancel={() => setPendingDeleteImage(null)}
+        onCancel={() => setPendingDelete(null)}
       />
-    </>
+    </form>
   );
 }

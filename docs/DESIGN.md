@@ -88,7 +88,11 @@ redirects for retired addresses all come from `app/lib/routes.ts`.
 - **Akun**: one page with tabs — Koleksi (`/account`: bought works, downloads),
   Pesanan (`/account/orders`: merch orders, tracking), Profil (`/account/profile`).
   Replaces Dashboard, Settings, Album Saya and Pesanan Saya. Signing in lands here.
-- **Admin**: Karya, Produk, Pesanan — same components, denser layout.
+- **Admin** (`/admin`): tabs Ringkasan · Karya · Produk · Pesanan from one layout
+  (`app/admin/layout.tsx`) that also does the admin check. Same components,
+  denser layout: lists are `AdminRow`s, forms are `FormSection`s, photos are
+  `PhotoTile`s (`app/admin/_components`). Edit is a secondary button, delete the
+  dashed one with a confirmation; there is no red button in admin.
 - Old URLs redirect permanently to the new ones so shared links keep working.
   Signed-out visitors of Akun or Admin land on `/?masuk=1`, which opens sign-in.
 
@@ -105,6 +109,6 @@ redirects for retired addresses all come from `app/lib/routes.ts`.
 1. **Fondasi** — tokens and the UI kit. ✅
 2. **Struktur** — Karya merge, Akun tabs, redirects, navigation and footer. ✅
 3. **Halaman publik** — Beranda, Karya, Detail, Toko, Produk, Pembayaran, Manifesto. ✅
-4. **Akun dan admin.**
+4. **Akun dan admin.** ✅
 5. **Rapikan** — Indonesian copy everywhere, remove old components, final check at
    320 / 375 / 768 / 1280 px, light and dark.
