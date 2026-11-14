@@ -7,6 +7,8 @@ import { ImageOff, ShoppingBag } from 'lucide-react';
 import Navbar from './component/Navbar';
 import AnnouncementBar from './component/AnnouncementBar';
 import AuthModal from './component/AuthModal';
+import SiteFooter from './component/SiteFooter';
+import { ACCOUNT_HOME } from './lib/routes';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabaseClient';
 import { formatIdr } from './lib/categories';
@@ -21,23 +23,28 @@ const PREVIEW_COUNT = 6;
 type LandingTab = 'works' | 'shop';
 
 function HomeContent() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const stayAtHome = searchParams.get('home') === 'true';
+  // proxy.ts sends signed-out visitors of Akun/Admin here with ?masuk=1.
+  const signInRequested = searchParams.get('masuk') === '1';
+  const [isModalOpen, setIsModalOpen] = useState(signInRequested);
 
   const [activeTab, setActiveTab] = useState<LandingTab>('works');
   const [previewWorks, setPreviewWorks] = useState<Work[]>([]);
   const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(true);
 
+  // Already signed in (e.g. the cookie was refreshed in another tab): no
+  // dialog, go where they were headed.
   useEffect(() => {
-    // Redirect ke dashboard jika sudah login (kecuali jika user memilih stay at home)
-    if (!loading && user && !stayAtHome) {
-      router.push('/dashboard');
-    }
-  }, [user, loading, router, stayAtHome]);
+    if (signInRequested && !loading && user) router.replace(ACCOUNT_HOME);
+  }, [signInRequested, loading, user, router]);
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    if (signInRequested) router.replace('/', { scroll: false });
+  };
 
   // Both tabs' content is fetched once up front, so switching between "Karya"
   // and "Merchandise" is an instant client-side swap, not a fresh request.
@@ -64,14 +71,6 @@ function HomeContent() {
       ignore = true;
     };
   }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black dark:bg-slate-950">
-        <div className="text-white text-xl">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -161,7 +160,7 @@ function HomeContent() {
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
                 {previewWorks.map((work) => (
-                  <Link key={work.id} href={`/works/${work.id}`} className="group">
+                  <Link key={work.id} href={`/gallery/${work.id}`} className="group">
                     <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-black/5 transition-colors group-hover:border-violet-500/30 dark:border-white/10 dark:bg-white/5">
                       {work.featured_image_url ? (
                         <img
@@ -264,7 +263,7 @@ function HomeContent() {
 
           <div className="mt-10 flex justify-center">
             <Link
-              href={activeTab === 'works' ? '/works' : '/shop'}
+              href={activeTab === 'works' ? '/gallery' : '/shop'}
               className="rounded-xl border border-black/10 bg-black/[0.03] px-8 py-3.5 font-sans text-[11px] font-black uppercase tracking-[0.2em] transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10"
             >
               Lihat Semua {activeTab === 'works' ? 'Karya' : 'Merchandise'}
@@ -273,11 +272,9 @@ function HomeContent() {
         </div>
       </section>
 
-      {/* Tampilkan Modal di sini */}
-      <AuthModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
+      <SiteFooter />
+
+      <AuthModal isOpen={isModalOpen} onClose={closeModal} />
     </>
   );
 }

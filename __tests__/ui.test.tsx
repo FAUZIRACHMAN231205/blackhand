@@ -6,6 +6,7 @@ import {
   FilterTabs,
   PageHeader,
   Price,
+  TabLinks,
   Tag,
   TextField,
 } from '@/app/component/ui'
@@ -145,6 +146,24 @@ describe('FilterTabs', () => {
     render(<FilterTabs label="Kategori" items={items} value={null} onChange={onChange} />)
     fireEvent.click(screen.getByRole('button', { name: 'Semua' }))
     expect(onChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('TabLinks', () => {
+  it('links every tab and marks the open one as the current page', () => {
+    render(
+      <TabLinks
+        label="Bagian akun"
+        current="/account/orders"
+        items={[
+          { href: '/account', label: 'Koleksi' },
+          { href: '/account/orders', label: 'Pesanan' },
+        ]}
+      />
+    )
+    expect(screen.getByRole('navigation', { name: 'Bagian akun' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Pesanan' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Koleksi' })).not.toHaveAttribute('aria-current')
   })
 })
 

@@ -68,18 +68,22 @@ own buttons, tags, fields or cards.
 | `TextField`, `TextAreaField`, `SelectField` | Labelled, bottom-ruled fields; `error` replaces `hint` and is tied to the control for screen readers |
 | `EmptyState` | Nothing to show yet: what will appear and the way forward |
 | `FilterTabs` | Category/filter row; the caller updates the URL so filtered views can be shared |
+| `TabLinks` | Tabs that are separate pages (Akun, later Admin), marked with `aria-current` |
 
-Navigation and footer are rebuilt in stage 2.
+Site-wide pieces outside the kit: `Navbar` (Karya · Toko · Manifesto, account menu,
+full-screen menu on phones) and `SiteFooter`. The menu, the Akun tabs and the
+redirects for retired addresses all come from `app/lib/routes.ts`.
 
 ## Structure (target)
 
-- Public: **Beranda**, **Karya** (one list + one detail page; replaces Feed and
-  Collection), **Toko** (list, detail, payment), **Manifesto**.
-- **Akun**: one page with tabs — Koleksi (bought works, downloads), Pesanan
-  (merch orders, tracking), Profil. Replaces Dashboard, Settings, Album Saya and
-  Pesanan Saya.
+- Public: **Beranda** (`/`), **Karya** (`/gallery`, `/gallery/[id]`; replaces Feed
+  and Collection), **Toko** (`/shop`, `/shop/[id]`), **Manifesto**.
+- **Akun**: one page with tabs — Koleksi (`/account`: bought works, downloads),
+  Pesanan (`/account/orders`: merch orders, tracking), Profil (`/account/profile`).
+  Replaces Dashboard, Settings, Album Saya and Pesanan Saya. Signing in lands here.
 - **Admin**: Karya, Produk, Pesanan — same components, denser layout.
-- Old URLs redirect to the new ones so shared links keep working.
+- Old URLs redirect permanently to the new ones so shared links keep working.
+  Signed-out visitors of Akun or Admin land on `/?masuk=1`, which opens sign-in.
 
 ## Copy
 
@@ -92,7 +96,7 @@ Navigation and footer are rebuilt in stage 2.
 ## Rollout
 
 1. **Fondasi** — tokens and the UI kit. ✅
-2. **Struktur** — Karya merge, Akun tabs, redirects, navigation and footer.
+2. **Struktur** — Karya merge, Akun tabs, redirects, navigation and footer. ✅
 3. **Halaman publik** — Beranda, Karya, Detail, Toko, Produk, Pembayaran, Manifesto.
 4. **Akun dan admin.**
 5. **Rapikan** — Indonesian copy everywhere, remove old components, final check at

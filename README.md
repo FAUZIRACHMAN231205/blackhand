@@ -181,18 +181,19 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Path | Description | Access |
 | --- | --- | --- |
-| `/` | Landing + auth modal | Public |
-| `/dashboard` | User dashboard | Signed-in |
-| `/gallery`, `/gallery/[id]` | Collection grid + album detail (buy, ratings, comments) | Public — rating, commenting and buying ask you to sign in |
-| `/works`, `/works/[id]` | Activity feed + album detail | Public |
-| `/shop`, `/shop/[id]` | Merchandise shop + product detail with checkout | Public — buying asks you to sign in |
-| `/albums` | Album Saya — owned works, pending payments, downloads | Signed-in |
-| `/orders` | Pesanan Saya — merchandise orders, status, tracking, resume payment | Signed-in |
-| `/settings` | Profile & session settings | Signed-in |
+| `/` | Beranda — hero, latest works and merchandise; `?masuk=1` opens the sign-in dialog | Public |
+| `/gallery`, `/gallery/[id]` | Karya — artwork grid (filter by category or "Tersedia") + detail (buy, ratings, comments) | Public — rating, commenting and buying ask you to sign in |
+| `/shop`, `/shop/[id]` | Toko — merchandise shop + product detail with checkout | Public — buying asks you to sign in |
+| `/manifesto` | Manifesto | Public |
+| `/account` | Akun › Koleksi — owned works, pending payments, downloads | Signed-in |
+| `/account/orders` | Akun › Pesanan — merchandise orders, status, tracking, resume payment | Signed-in |
+| `/account/profile` | Akun › Profil — name, sign-in method, support, sign out | Signed-in |
 | `/admin` | Admin dashboard | Admin |
 | `/admin/works`, `/admin/works/create`, `/admin/works/[id]/edit` | Manage / create / edit works | Admin |
 | `/admin/products`, `/admin/products/create`, `/admin/products/[id]/edit` | Manage products, photos, stock, shipping fee | Admin |
 | `/admin/orders` | Orders & Sales — merch fulfilment, artwork buyers, refunds | Admin |
+
+Retired addresses redirect permanently (see `LEGACY_REDIRECTS` in `app/lib/routes.ts`): `/works` → `/gallery`, `/dashboard` and `/albums` → `/account`, `/orders` → `/account/orders`, `/settings` → `/account/profile`.
 
 **API (route handlers under `app/api/`)**
 
@@ -205,7 +206,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - `works/[id]/download?format=jpg&image=…|zip|pdf` — owner downloads; JPEG originals pass through byte-for-byte, the PDF is one page per image
 - `works/[id]/drive` → `drive/google/callback` — copies an owned album into a new folder in the buyer's Google Drive
 - `me/albums` — ids of albums the signed-in visitor owns
-- `me/purchases` — owned works, payments still awaiting confirmation, and payments to be refunded (for `/albums`)
+- `me/purchases` — owned works, payments still awaiting confirmation, and payments to be refunded (for Akun › Koleksi)
 - `shop/products`, `shop/products/[id]` — published products with the current shipping fee
 - `shop/products/[id]/checkout` — take stock and open a Snap transaction for product + shipping (signed-in)
 - `me/product-orders`, `me/product-orders/[id]/pay` — the caller's merchandise orders; reopen an unpaid one's payment

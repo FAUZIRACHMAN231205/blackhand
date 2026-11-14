@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Clock, Check } from 'lucide-react';
-import { Button, CatalogCard, EmptyState, PageHeader, Price, Tag } from '../component/ui';
+import { Button, CatalogCard, EmptyState, PageHeader, Price, TabLinks, Tag } from '../component/ui';
 import { DemoFields, DemoFilterTabs, ThemeSwitch } from './Demos';
 
 export const metadata: Metadata = {
@@ -107,6 +107,18 @@ export default function DesignPage() {
 
         <Section title="Filter">
           <DemoFilterTabs />
+        </Section>
+
+        <Section title="Tab halaman">
+          <TabLinks
+            label="Contoh tab akun"
+            current="/design"
+            items={[
+              { href: '/design', label: 'Koleksi' },
+              { href: '/account/orders', label: 'Pesanan' },
+              { href: '/account/profile', label: 'Profil' },
+            ]}
+          />
         </Section>
 
         <Section title="Isian">

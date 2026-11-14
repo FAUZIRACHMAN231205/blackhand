@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, AlertCircle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { ACCOUNT_HOME } from '../lib/routes';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -91,7 +92,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
       // Login must not override the theme the user chose.
       onClose();
-      router.push('/dashboard');
+      router.push(ACCOUNT_HOME);
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error('Error verifikasi OTP:', error);

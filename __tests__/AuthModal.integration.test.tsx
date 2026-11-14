@@ -108,7 +108,7 @@ describe('AuthModal', () => {
     expect(code.value).toBe('123456')
   })
 
-  it('verifies the code, closes, and goes to the dashboard', async () => {
+  it('verifies the code, closes, and goes to the account page', async () => {
     fetchMock.mockReturnValueOnce(jsonResponse({ success: true }))
     fetchMock.mockReturnValueOnce(jsonResponse({ user: { id: 'user-1' } }))
     const { onClose } = renderModal()
@@ -117,7 +117,7 @@ describe('AuthModal', () => {
     fireEvent.change(await screen.findByPlaceholderText('6-digit code'), { target: { value: '123456' } })
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard'))
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/account'))
     expect(onClose).toHaveBeenCalled()
     expect(fetchMock).toHaveBeenLastCalledWith('/api/auth/otp/verify', {
       method: 'POST',

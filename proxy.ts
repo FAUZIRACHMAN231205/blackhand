@@ -7,13 +7,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import { isAdmin } from '@/app/lib/adminUtils';
+import { ACCOUNT_HOME, isActivePath } from '@/app/lib/routes';
 
 const SESSION_COOKIE = 'bh_session';
 
-// /gallery, /works and /shop are intentionally public: visitors can browse
-// without an account. Signing in is only required to rate, comment or buy,
-// which the API routes enforce on their own.
-const PROTECTED_PATHS = ['/dashboard', '/settings', '/admin', '/albums', '/orders'];
+// /gallery and /shop are intentionally public: visitors can browse without an
+// account. Signing in is only required to rate, comment or buy, which the API
+// routes enforce on their own. Retired addresses (/dashboard, /orders, …) are
+// redirected in next.config.ts before this runs.
+const PROTECTED_PATHS = [ACCOUNT_HOME, '/admin'];
 const ADMIN_ONLY_PATHS = ['/admin'];
 
 async function readSessionUser(token: string | undefined) {
@@ -35,24 +37,25 @@ async function readSessionUser(token: string | undefined) {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
+  const isProtected = PROTECTED_PATHS.some((p) => isActivePath(pathname, p));
   if (!isProtected) return NextResponse.next();
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const user = await readSessionUser(token);
 
   if (!user) {
-    return NextResponse.redirect(new URL('/', request.url));
+    // The home page opens the sign-in dialog for ?masuk=1.
+    return NextResponse.redirect(new URL('/?masuk=1', request.url));
   }
 
-  const isAdminPath = ADMIN_ONLY_PATHS.some((p) => pathname.startsWith(p));
+  const isAdminPath = ADMIN_ONLY_PATHS.some((p) => isActivePath(pathname, p));
   if (isAdminPath && !isAdmin(user)) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL(ACCOUNT_HOME, request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/settings/:path*', '/admin/:path*', '/albums/:path*', '/orders/:path*'],
+  matcher: ['/account', '/account/:path*', '/admin', '/admin/:path*'],
 };

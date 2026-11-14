@@ -33,7 +33,7 @@ export default function CreateProduct() {
   useEffect(() => {
     if (!loading) {
       if (!user) router.push('/');
-      else if (!isAdmin(user)) router.push('/dashboard');
+      else if (!isAdmin(user)) router.push('/account');
     }
   }, [user, loading, router]);
 

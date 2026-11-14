@@ -5,6 +5,7 @@ import { getSession } from '@/app/lib/session';
 import { hasPurchased } from '@/app/lib/orders';
 import { DRIVE_SCOPE, driveRedirectUri } from '@/app/lib/googleDrive';
 import { DRIVE_STATE_COOKIE, DRIVE_STATE_COOKIE_PATH } from '@/app/lib/oauth';
+import { ACCOUNT_HOME } from '@/app/lib/routes';
 
 /**
  * Starts "save this album to my Google Drive". A plain navigation, not a fetch,
@@ -13,7 +14,7 @@ import { DRIVE_STATE_COOKIE, DRIVE_STATE_COOKIE_PATH } from '@/app/lib/oauth';
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { origin } = request.nextUrl;
-  const back = (outcome: string) => NextResponse.redirect(new URL(`/albums?drive=${outcome}`, origin));
+  const back = (outcome: string) => NextResponse.redirect(new URL(`${ACCOUNT_HOME}?drive=${outcome}`, origin));
 
   const user = await getSession();
   if (!user) return NextResponse.redirect(new URL(`/gallery/${id}`, origin));

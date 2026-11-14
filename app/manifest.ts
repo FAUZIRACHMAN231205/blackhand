@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { BRAND_BACKGROUND } from './lib/brandIcon';
+import { ACCOUNT_ORDERS } from './lib/routes';
 
 /** What lets phones install Blackhand to the home screen and open it like an app. */
 export default function manifest(): MetadataRoute.Manifest {
@@ -22,9 +23,9 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     // Long-press the app icon on Android to jump straight in.
     shortcuts: [
-      { name: 'Collection', short_name: 'Collection', url: '/gallery' },
-      { name: 'Shop', short_name: 'Shop', url: '/shop' },
-      { name: 'Pesanan Saya', short_name: 'Pesanan', url: '/orders' },
+      { name: 'Karya', short_name: 'Karya', url: '/gallery' },
+      { name: 'Toko', short_name: 'Toko', url: '/shop' },
+      { name: 'Pesanan', short_name: 'Pesanan', url: ACCOUNT_ORDERS },
     ],
   };
 }
