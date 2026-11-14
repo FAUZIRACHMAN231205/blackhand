@@ -31,13 +31,13 @@ export function validatePricing(priceIdr: unknown, isForSale: unknown): string |
   const forSale = Boolean(isForSale);
 
   if (priceIdr === undefined || priceIdr === null || priceIdr === '') {
-    return forSale ? 'A price is required before an album can be sold' : null;
+    return forSale ? 'Harga wajib diisi sebelum karya bisa dijual' : null;
   }
   if (typeof priceIdr !== 'number' || !Number.isInteger(priceIdr) || priceIdr < 0) {
-    return 'Price must be a whole number of rupiah';
+    return 'Harga harus bilangan bulat rupiah';
   }
   if (forSale && priceIdr < MIN_PRICE_IDR) {
-    return `Price must be at least Rp ${MIN_PRICE_IDR.toLocaleString('id-ID')} to be sold`;
+    return `Harga minimal Rp ${MIN_PRICE_IDR.toLocaleString('id-ID')} agar bisa dijual`;
   }
   return null;
 }

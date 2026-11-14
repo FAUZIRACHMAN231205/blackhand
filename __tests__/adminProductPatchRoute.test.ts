@@ -47,7 +47,7 @@ describe('PATCH /api/admin/products/[id] — sale price pair', () => {
     const res = await patch({ price_idr: 120000 })
 
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toMatch(/higher than the price/)
+    expect((await res.json()).error).toMatch(/lebih tinggi dari harga jual/)
     expect(updates).toHaveLength(0)
   })
 

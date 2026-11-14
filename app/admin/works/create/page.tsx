@@ -1,423 +1,171 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useAuth } from '../../../hooks/useAuth';
-import { isAdmin } from '../../../lib/adminUtils';
-import { supabase } from '../../../lib/supabaseClient';
-import Navbar from '../../../component/Navbar';
-// supabase (anon-key client) is only used here for the signed-URL Storage upload step —
-// the upload token itself authorizes the write, no session needed.
-import { LoadingSpinner } from '../../../component/LoadingStates';
+import { Button, Notice, PageHeader } from '../../../component/ui';
 import { useToast } from '../../../context/ToastContext';
-import { ChevronLeft, Upload, X, Star } from 'lucide-react';
-import {
-  WORK_CATEGORIES,
-  MAX_IMAGES_PER_WORK,
-  MAX_IMAGE_BYTES,
-  ALLOWED_IMAGE_TYPES,
-  MIN_PRICE_IDR,
-  formatIdr,
-} from '../../../lib/categories';
+// The anon-key client is only used for the signed-URL Storage upload: the
+// upload token itself authorises the write, no session needed.
+import { supabase } from '../../../lib/supabaseClient';
+import { MAX_IMAGES_PER_WORK } from '../../../lib/categories';
+import { checkPhotoFile } from '../../../lib/productUpload';
+import { AddPhotoTile, FormSection, PhotoTile, TileButton } from '../../_components/AdminParts';
+import WorkFields, { EMPTY_WORK, checkWork, workPayload, type WorkDraft, type WorkErrors } from '../../_components/WorkFields';
 
-// Shared with the API so the form and the server never disagree.
-const CATEGORIES = WORK_CATEGORIES;
-const MAX_IMAGES = MAX_IMAGES_PER_WORK;
-
-interface ImageUpload {
-  file: File | null;
-  preview: string | null;
-  order: number;
-  isFeatured: boolean;
+interface PickedPhoto {
+  file: File;
+  preview: string;
 }
 
-const inputClass =
-  'w-full px-4 py-3.5 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl text-black dark:text-white placeholder-black/50 dark:placeholder-white/50 focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all font-sans text-base';
-const labelClass = 'block font-sans text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-white/50 mb-2.5';
-const cardClass = 'bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-8 space-y-6 transition-colors shadow-sm backdrop-blur-sm';
-
 export default function CreateWork() {
-  const { user, loading } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Paintings');
-  const [images, setImages] = useState<ImageUpload[]>(
-    Array.from({ length: MAX_IMAGES }, (_, i) => ({
-      file: null,
-      preview: null,
-      order: i + 1,
-      isFeatured: i === 0,
-    }))
-  );
-  const [isPublished, setIsPublished] = useState(true);
-  const [isForSale, setIsForSale] = useState(false);
-  const [priceIdr, setPriceIdr] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draft, setDraft] = useState<WorkDraft>(EMPTY_WORK);
+  const [errors, setErrors] = useState<WorkErrors>({});
+  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
+  const [coverIndex, setCoverIndex] = useState(0);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
+  // Release the in-memory previews still held when the page goes away.
+  const photosRef = useRef(photos);
   useEffect(() => {
-    // Redirect jika belum login atau bukan admin
-    if (!loading) {
-      if (!user) {
-        router.push('/');
-      } else if (!isAdmin(user)) {
-        router.push('/account');
+    photosRef.current = photos;
+  }, [photos]);
+  useEffect(() => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.preview)), []);
+
+  const pickPhotos = (files: FileList | null) => {
+    if (!files) return;
+    const room = MAX_IMAGES_PER_WORK - photos.length;
+    const accepted: PickedPhoto[] = [];
+    for (const file of Array.from(files).slice(0, room)) {
+      const problem = checkPhotoFile(file);
+      if (problem) {
+        showToast({ type: 'error', message: `${file.name}: ${problem}` });
+        continue;
       }
+      accepted.push({ file, preview: URL.createObjectURL(file) });
     }
-  }, [user, loading, router]);
-
-  if (loading || !user || !isAdmin(user)) {
-    return <LoadingSpinner />;
-  }
-
-  const handleImageSelect = (index: number, file: File) => {
-    // Reject early, before reading or uploading, with the same limits the API enforces.
-    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-      showToast({ type: 'error', message: 'Only JPG, PNG, WebP, AVIF or GIF images are allowed' });
-      return;
+    if (files.length > room) {
+      showToast({ type: 'info', message: `Satu karya paling banyak ${MAX_IMAGES_PER_WORK} gambar.` });
     }
-    if (file.size > MAX_IMAGE_BYTES) {
-      showToast({
-        type: 'error',
-        message: `Image is too large (max ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB)`,
-      });
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const newImages = [...images];
-      newImages[index] = {
-        ...newImages[index],
-        file,
-        preview: e.target?.result as string,
-      };
-      setImages(newImages);
-    };
-    reader.readAsDataURL(file);
+    if (accepted.length) setPhotoError(null);
+    setPhotos((prev) => [...prev, ...accepted]);
   };
 
-  const handleImageRemove = (index: number) => {
-    const newImages = [...images];
-    newImages[index] = {
-      ...newImages[index],
-      file: null,
-      preview: null,
-    };
-    setImages(newImages);
+  const removePhoto = (index: number) => {
+    URL.revokeObjectURL(photos[index].preview);
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setCoverIndex((c) => (index === c ? 0 : index < c ? c - 1 : c));
   };
 
-  const handleSetFeatured = (index: number) => {
-    const newImages = images.map((img, i) => ({
-      ...img,
-      isFeatured: i === index,
-    }));
-    setImages(newImages);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    if (progress) return;
 
+    const fieldErrors = checkWork(draft);
+    const noPhotos = photos.length === 0;
+    setErrors(fieldErrors);
+    setPhotoError(noPhotos ? 'Unggah minimal 1 gambar.' : null);
+    setFormError(null);
+    if (Object.keys(fieldErrors).length > 0 || noPhotos) {
+      document.getElementById(fieldErrors.title ? 'work-title' : fieldErrors.price ? 'work-price' : 'work-photos')?.focus();
+      return;
+    }
+
+    setProgress('Menyimpan karya');
     try {
-      // Validasi
-      if (!title.trim()) {
-        showToast({ type: 'error', message: 'Title is required' });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const uploadedImages = images.filter((img) => img.file);
-      if (uploadedImages.length === 0) {
-        showToast({ type: 'error', message: 'Please upload at least 1 image' });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // 1. Buat work di database (tanpa gambar dulu)
       const createRes = await fetch('/api/admin/works', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim(),
-          category,
-          is_published: isPublished,
-          is_for_sale: isForSale,
-          price_idr: priceIdr === '' ? null : Number(priceIdr),
-        }),
+        body: JSON.stringify(workPayload(draft)),
       });
       const createData = await createRes.json();
-
       if (!createRes.ok) {
-        console.error('Work creation error:', createData.error);
-        showToast({ type: 'error', message: createData.error || 'Failed to create work' });
-        setIsSubmitting(false);
+        setFormError(createData.error || 'Karya gagal dibuat.');
+        setProgress(null);
         return;
       }
-
       const workId = createData.work.id as string;
 
-      // 2. Upload tiap gambar via signed URL, lalu persist row-nya
-      for (const [index, imageData] of images.entries()) {
-        if (!imageData.file) continue;
-
+      // Each image: a signed upload slot, the file straight to Storage, then
+      // the API records it (and makes the preview everyone sees).
+      for (const [index, photo] of photos.entries()) {
+        setProgress(`Mengunggah gambar ${index + 1} dari ${photos.length}`);
         const urlRes = await fetch(`/api/admin/works/${workId}/images/upload-url`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileName: imageData.file.name,
-            contentType: imageData.file.type,
-            size: imageData.file.size,
-          }),
+          body: JSON.stringify({ fileName: photo.file.name, contentType: photo.file.type, size: photo.file.size }),
         });
         const urlData = await urlRes.json();
-
-        if (!urlRes.ok) {
-          console.error('Upload URL error:', urlData.error);
-          showToast({ type: 'error', message: `Failed to upload image ${index + 1}` });
-          setIsSubmitting(false);
-          return;
-        }
+        if (!urlRes.ok) throw new Error(urlData.error || `Gambar ${index + 1} gagal diunggah.`);
 
         const { error: uploadError } = await supabase.storage
           .from('work-originals')
-          .uploadToSignedUrl(urlData.path, urlData.token, imageData.file);
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          showToast({ type: 'error', message: `Failed to upload image ${index + 1}` });
-          setIsSubmitting(false);
-          return;
-        }
+          .uploadToSignedUrl(urlData.path, urlData.token, photo.file);
+        if (uploadError) throw new Error(`Gambar ${index + 1} gagal diunggah.`);
 
         const persistRes = await fetch(`/api/admin/works/${workId}/images`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             original_path: urlData.originalPath,
-            display_order: imageData.order,
-            is_featured: imageData.isFeatured,
+            display_order: index + 1,
+            is_featured: index === coverIndex,
           }),
         });
-
-        if (!persistRes.ok) {
-          console.error('Images insertion error:', await persistRes.text());
-          showToast({ type: 'error', message: 'Failed to save images' });
-          setIsSubmitting(false);
-          return;
-        }
+        if (!persistRes.ok) throw new Error(`Gambar ${index + 1} gagal disimpan.`);
       }
 
-      showToast({ type: 'success', message: 'Work created successfully!' });
+      showToast({ type: 'success', message: 'Karya berhasil dibuat.' });
       router.push('/admin/works');
     } catch (error) {
-      console.error('Error:', error);
-      showToast({ type: 'error', message: 'An error occurred' });
-      setIsSubmitting(false);
+      console.error('Create work error:', error);
+      setFormError(
+        error instanceof Error
+          ? `${error.message} Karya sudah tersimpan; tambahkan gambar yang kurang dari halaman Ubah.`
+          : 'Terjadi kesalahan. Coba lagi.'
+      );
+      setProgress(null);
     }
   };
 
   return (
-    <>
-      <Navbar onOpenModal={() => {}} />
+    <form onSubmit={submit} noValidate className="grid grid-cols-1 gap-10">
+      <PageHeader
+        eyebrow="Admin · Karya"
+        title="Unggah karya"
+        description={`Satu album berisi sampai ${MAX_IMAGES_PER_WORK} gambar. File asli disimpan aman; pengunjung melihat versi pratinjau.`}
+      />
 
-      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors duration-300">
-        <div className="max-w-4xl mx-auto">
-          {/* Back Button */}
-          <button
-            onClick={() => router.push('/admin/works')}
-            className="flex items-center gap-2 py-2 mb-6 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
-          >
-            <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="font-sans text-sm font-medium">Back to Works</span>
-          </button>
+      <WorkFields draft={draft} onChange={setDraft} errors={errors} />
 
-          {/* Header */}
-          <div className="mb-12">
-            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-2">
-              Upload New Work
-            </h1>
-            <p className="font-sans text-sm text-black/60 dark:text-white/60">
-              Create an album with up to {MAX_IMAGES} images
-            </p>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Basic Info */}
-            <div className={cardClass}>
-              <h2 className="font-serif text-lg italic">Work Information</h2>
-
-              <div>
-                <label className={labelClass}>Title *</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter work title"
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className={labelClass}>Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Enter work description (optional)"
-                  rows={4}
-                  className={`${inputClass} resize-none`}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Category *</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className={inputClass}
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Status</label>
-                  <select
-                    value={isPublished ? 'published' : 'unpublished'}
-                    onChange={(e) => setIsPublished(e.target.value === 'published')}
-                    className={inputClass}
-                  >
-                    <option value="published">Published</option>
-                    <option value="unpublished">Unpublished</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Availability</label>
-                  <select
-                    value={isForSale ? 'sale' : 'not-for-sale'}
-                    onChange={(e) => setIsForSale(e.target.value === 'sale')}
-                    className={inputClass}
-                  >
-                    <option value="not-for-sale">Not for sale</option>
-                    <option value="sale">For sale</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Price (IDR)</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    step={1000}
-                    value={priceIdr}
-                    onChange={(e) => setPriceIdr(e.target.value)}
-                    placeholder="50000"
-                    className={inputClass}
-                  />
-                  <p className="mt-1.5 font-sans text-[11px] text-black/60 dark:text-white/60">
-                    {priceIdr !== '' && Number(priceIdr) > 0
-                      ? formatIdr(Number(priceIdr))
-                      : `Minimum ${formatIdr(MIN_PRICE_IDR)} when for sale`}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Images Upload */}
-            <div className={cardClass}>
-              <h2 className="font-serif text-lg italic">
-                Images (Up to {MAX_IMAGES})
-              </h2>
-
-              <div className="grid grid-cols-2 gap-3 sm:gap-6">
-                {images.map((image, index) => (
-                  <div key={index} className="border-2 border-dashed border-black/10 dark:border-white/15 rounded-xl p-3 sm:p-4 hover:border-violet-500/30 transition-colors">
-                    <div className="relative">
-                      {image.preview ? (
-                        <div className="space-y-3">
-                          <img
-                            src={image.preview}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-48 object-cover rounded-lg"
-                          />
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleImageRemove(index)}
-                              className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 px-2 bg-rose-500/10 text-rose-500 dark:text-rose-400 rounded-lg hover:bg-rose-500/20 transition-colors font-sans text-[11px] sm:text-xs font-bold"
-                            >
-                              <X size={14} />
-                              Remove
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleSetFeatured(index)}
-                              className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 px-2 text-center leading-tight rounded-lg transition-colors font-sans text-[11px] sm:text-xs font-bold ${
-                                image.isFeatured
-                                  ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300/60 dark:border-amber-800/50'
-                                  : 'bg-black/5 dark:bg-white/5 text-black/60 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10'
-                              }`}
-                            >
-                              {image.isFeatured ? (<><Star size={12} className="fill-current" />Featured</>) : 'Set Featured'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="block cursor-pointer">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleImageSelect(index, file);
-                            }}
-                            className="hidden"
-                          />
-                          <div className="flex flex-col items-center justify-center py-6">
-                            <Upload size={26} strokeWidth={1.5} className="text-black/30 dark:text-white/30 mb-2" />
-                            <p className="font-sans text-xs font-bold text-black/60 dark:text-white/60">Image {index + 1}</p>
-                            <p className="font-sans text-[10px] text-black/60 dark:text-white/60 mt-0.5">Click to upload</p>
-                          </div>
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Submit */}
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 px-6 py-3.5 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
-              >
-                {isSubmitting ? 'Uploading...' : 'Create Work'}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/admin/works')}
-                className="flex-1 px-6 py-3.5 border border-black/10 dark:border-white/10 text-black dark:text-white rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+      <FormSection title={`Gambar · ${photos.length}/${MAX_IMAGES_PER_WORK}`} aside="Gambar bertanda Sampul tampil di kartu karya.">
+        <div id="work-photos" tabIndex={-1} className="grid grid-cols-2 gap-4 outline-none sm:grid-cols-3">
+          {photos.map((photo, index) => (
+            <PhotoTile key={photo.preview} src={photo.preview} alt={`Gambar ${index + 1}`} cover={index === coverIndex}>
+              {index !== coverIndex && <TileButton onClick={() => setCoverIndex(index)}>Jadikan sampul</TileButton>}
+              <TileButton tone="danger" onClick={() => removePhoto(index)}>
+                Lepas
+              </TileButton>
+            </PhotoTile>
+          ))}
+          {photos.length < MAX_IMAGES_PER_WORK && <AddPhotoTile label="Tambah gambar" multiple onFiles={pickPhotos} />}
         </div>
-      </main>
-    </>
+        {photoError && <p className="font-sans text-xs text-accent-text">{photoError}</p>}
+      </FormSection>
+
+      {formError && <Notice tone="error">{formError}</Notice>}
+
+      <div className="flex flex-wrap items-center gap-3 border-t border-ink pt-6">
+        <Button type="submit" loading={progress !== null}>
+          {progress ?? 'Simpan karya'}
+        </Button>
+        <Button variant="ghost" href="/admin/works">
+          Batal
+        </Button>
+      </div>
+    </form>
   );
 }

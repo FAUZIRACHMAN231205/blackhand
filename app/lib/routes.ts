@@ -26,6 +26,25 @@ export const ACCOUNT_TABS: NavItem[] = [
   { href: ACCOUNT_PROFILE, label: 'Profil' },
 ];
 
+export const ADMIN_HOME = '/admin';
+
+/** Tabs of the admin area: an overview, then the three things it manages. */
+export const ADMIN_TABS: NavItem[] = [
+  { href: ADMIN_HOME, label: 'Ringkasan' },
+  { href: '/admin/works', label: 'Karya' },
+  { href: '/admin/products', label: 'Produk' },
+  { href: '/admin/orders', label: 'Pesanan' },
+];
+
+/**
+ * The tab a page belongs to: the most specific tab whose address is the page
+ * or one of its parents (/admin/works/new → Karya, /admin → Ringkasan).
+ */
+export function activeTab(pathname: string | null, tabs: NavItem[]): string | null {
+  const matches = tabs.filter((t) => isActivePath(pathname, t.href));
+  return matches.sort((a, b) => b.href.length - a.href.length)[0]?.href ?? null;
+}
+
 /**
  * Old addresses that were merged away. They redirect permanently, so links
  * already shared (and installed-app shortcuts) keep working. Query strings

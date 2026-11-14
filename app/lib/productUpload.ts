@@ -5,10 +5,10 @@ import type { ProductImage } from '../types';
 /** Check a picked file against the same limits the API enforces. Returns an error, or null. */
 export function checkPhotoFile(file: File): string | null {
   if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-    return 'Only JPG, PNG, WebP, AVIF or GIF images are allowed';
+    return 'Hanya gambar JPG, PNG, WebP, AVIF, atau GIF';
   }
   if (file.size > MAX_IMAGE_BYTES) {
-    return `Image is too large (max ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB)`;
+    return `Gambar terlalu besar (maksimal ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB)`;
   }
   return null;
 }
@@ -25,12 +25,12 @@ export async function uploadProductPhoto(productId: string, file: File): Promise
     body: JSON.stringify({ fileName: file.name, contentType: file.type, size: file.size }),
   });
   const slot = await slotRes.json();
-  if (!slotRes.ok) throw new Error(slot.error || 'Failed to prepare upload');
+  if (!slotRes.ok) throw new Error(slot.error || 'Gagal menyiapkan unggahan');
 
   const { error: uploadError } = await supabase.storage
     .from('product-images')
     .uploadToSignedUrl(slot.path, slot.token, file);
-  if (uploadError) throw new Error('Failed to upload photo');
+  if (uploadError) throw new Error('Gagal mengunggah foto');
 
   const saveRes = await fetch(`/api/admin/products/${productId}/images`, {
     method: 'POST',
@@ -38,7 +38,7 @@ export async function uploadProductPhoto(productId: string, file: File): Promise
     body: JSON.stringify({ uploadPath: slot.uploadPath }),
   });
   const saved = await saveRes.json();
-  if (!saveRes.ok) throw new Error(saved.error || 'Failed to save photo');
+  if (!saveRes.ok) throw new Error(saved.error || 'Gagal menyimpan foto');
 
   return saved.image as ProductImage;
 }

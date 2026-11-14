@@ -1,21 +1,20 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ImagePlus, Loader2, Star, X } from 'lucide-react';
-import { useAuth } from '../../../hooks/useAuth';
-import { isAdmin } from '../../../lib/adminUtils';
+import { useRouter } from 'next/navigation';
+import { Button, Notice, PageHeader } from '../../../component/ui';
 import { useToast } from '../../../context/ToastContext';
-import { MAX_IMAGES_PER_PRODUCT, validateProductInput } from '../../../lib/shop';
+import { MAX_IMAGES_PER_PRODUCT } from '../../../lib/shop';
 import { checkPhotoFile, uploadProductPhoto } from '../../../lib/productUpload';
-import Navbar from '../../../component/Navbar';
-import { LoadingSpinner } from '../../../component/LoadingStates';
+import { AddPhotoTile, FormSection, PhotoTile, TileButton } from '../../_components/AdminParts';
 import ProductFields, {
   EMPTY_PRODUCT,
-  adminCardClass,
+  checkProduct,
+  firstProductError,
   productPayload,
   type ProductDraft,
-} from '../../../component/ProductFields';
+  type ProductErrors,
+} from '../../_components/ProductFields';
 
 interface PickedPhoto {
   file: File;
@@ -23,19 +22,13 @@ interface PickedPhoto {
 }
 
 export default function CreateProduct() {
-  const { user, loading } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
   const [draft, setDraft] = useState<ProductDraft>(EMPTY_PRODUCT);
+  const [errors, setErrors] = useState<ProductErrors>({});
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [progress, setProgress] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!loading) {
-      if (!user) router.push('/');
-      else if (!isAdmin(user)) router.push('/account');
-    }
-  }, [user, loading, router]);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Release the in-memory previews still held when the page goes away.
   const photosRef = useRef(photos);
@@ -43,8 +36,6 @@ export default function CreateProduct() {
     photosRef.current = photos;
   }, [photos]);
   useEffect(() => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.preview)), []);
-
-  if (loading || !user || !isAdmin(user)) return <LoadingSpinner />;
 
   const pickPhotos = (files: FileList | null) => {
     if (!files) return;
@@ -59,7 +50,7 @@ export default function CreateProduct() {
       accepted.push({ file, preview: URL.createObjectURL(file) });
     }
     if (files.length > room) {
-      showToast({ type: 'info', message: `A product can have at most ${MAX_IMAGES_PER_PRODUCT} photos` });
+      showToast({ type: 'info', message: `Satu produk paling banyak ${MAX_IMAGES_PER_PRODUCT} foto.` });
     }
     setPhotos((prev) => [...prev, ...accepted]);
   };
@@ -69,27 +60,34 @@ export default function CreateProduct() {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // The first photo is the cover: "Jadikan sampul" moves it to the front.
+  const makeCover = (index: number) => {
+    setPhotos((prev) => [prev[index], ...prev.filter((_, i) => i !== index)]);
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (progress) return;
 
-    const payload = productPayload(draft);
-    const invalid = validateProductInput(payload);
-    if (invalid) {
-      showToast({ type: 'error', message: invalid });
+    const fieldErrors = checkProduct(draft);
+    setErrors(fieldErrors);
+    setFormError(null);
+    const first = firstProductError(fieldErrors);
+    if (first) {
+      document.getElementById(first)?.focus();
       return;
     }
 
-    setProgress('Saving product…');
+    setProgress('Menyimpan produk');
     try {
       const res = await fetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(productPayload(draft)),
       });
       const data = await res.json();
       if (!res.ok) {
-        showToast({ type: 'error', message: data.error || 'Failed to create product' });
+        setFormError(data.error || 'Produk gagal dibuat.');
         setProgress(null);
         return;
       }
@@ -97,7 +95,7 @@ export default function CreateProduct() {
       const productId = data.product.id as string;
       let failed = 0;
       for (const [index, photo] of photos.entries()) {
-        setProgress(`Uploading photo ${index + 1} of ${photos.length}…`);
+        setProgress(`Mengunggah foto ${index + 1} dari ${photos.length}`);
         try {
           await uploadProductPhoto(productId, photo.file);
         } catch (err) {
@@ -107,109 +105,56 @@ export default function CreateProduct() {
       }
 
       if (failed > 0) {
-        showToast({ type: 'error', message: `Product saved, but ${failed} photo(s) failed. Add them from Edit.` });
+        showToast({ type: 'error', message: `Produk tersimpan, tetapi ${failed} foto gagal. Tambahkan lagi di halaman ini.` });
         router.push(`/admin/products/${productId}/edit`);
         return;
       }
-      showToast({ type: 'success', message: 'Product created' });
+      showToast({ type: 'success', message: 'Produk berhasil dibuat.' });
       router.push('/admin/products');
     } catch (err) {
       console.error('Create product error:', err);
-      showToast({ type: 'error', message: 'An error occurred' });
+      setFormError('Terjadi kesalahan. Periksa koneksi Anda lalu coba lagi.');
       setProgress(null);
     }
   };
 
   return (
-    <>
-      <Navbar onOpenModal={() => {}} />
+    <form onSubmit={submit} noValidate className="grid grid-cols-1 gap-10">
+      <PageHeader
+        eyebrow="Admin · Produk"
+        title="Tambah produk"
+        description={`Aksesori atau merchandise, dengan sampai ${MAX_IMAGES_PER_PRODUCT} foto.`}
+      />
 
-      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors duration-300">
-        <div className="max-w-4xl mx-auto">
-          <button
-            onClick={() => router.push('/admin/products')}
-            className="flex items-center gap-2 py-2 mb-6 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
-          >
-            <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="font-sans text-sm font-medium">Back to Products</span>
-          </button>
+      <ProductFields draft={draft} onChange={setDraft} errors={errors} />
 
-          <div className="mb-12">
-            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-2">New Product</h1>
-            <p className="font-sans text-sm text-black/60 dark:text-white/60">
-              Accessories or merchandise, with up to {MAX_IMAGES_PER_PRODUCT} photos
-            </p>
-          </div>
-
-          <form onSubmit={submit} className="space-y-8">
-            <ProductFields draft={draft} onChange={setDraft} />
-
-            <div className={adminCardClass}>
-              <h2 className="font-serif text-lg italic">
-                Photos ({photos.length}/{MAX_IMAGES_PER_PRODUCT})
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                {photos.map((photo, index) => (
-                  <div key={photo.preview} className="relative aspect-square overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
-                    <img src={photo.preview} alt={`Photo ${index + 1}`} className="h-full w-full object-cover" />
-                    {index === 0 && (
-                      <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 font-sans text-[9px] font-bold text-black">
-                        <Star size={10} className="fill-current" /> Cover
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removePhoto(index)}
-                      aria-label={`Remove photo ${index + 1}`}
-                      className="absolute right-1.5 top-1.5 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white transition-colors hover:bg-black"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                {photos.length < MAX_IMAGES_PER_PRODUCT && (
-                  <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-black/10 transition-colors hover:border-violet-500/40 dark:border-white/15">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        pickPhotos(e.target.files);
-                        e.target.value = '';
-                      }}
-                    />
-                    <ImagePlus size={26} strokeWidth={1.5} className="mb-2 text-black/30 dark:text-white/30" />
-                    <span className="font-sans text-xs font-bold text-black/60 dark:text-white/60">Add photos</span>
-                  </label>
-                )}
-              </div>
-              <p className="font-sans text-[11px] text-black/50 dark:text-white/50">
-                The first photo is the cover. Photos are resized to 1200px for the shop.
-              </p>
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                disabled={progress !== null}
-                className="flex flex-1 items-center justify-center gap-2 px-6 py-3.5 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:opacity-90 disabled:opacity-50 transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
-              >
-                {progress && <Loader2 size={14} className="animate-spin" />}
-                {progress ?? 'Create Product'}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/admin/products')}
-                disabled={progress !== null}
-                className="flex-1 px-6 py-3.5 border border-black/10 dark:border-white/10 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+      <FormSection
+        title={`Foto · ${photos.length}/${MAX_IMAGES_PER_PRODUCT}`}
+        aside="Foto pertama jadi sampul. Foto diperkecil ke 1200 px untuk toko."
+      >
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {photos.map((photo, index) => (
+            <PhotoTile key={photo.preview} src={photo.preview} alt={`Foto ${index + 1}`} cover={index === 0}>
+              {index > 0 && <TileButton onClick={() => makeCover(index)}>Jadikan sampul</TileButton>}
+              <TileButton tone="danger" onClick={() => removePhoto(index)}>
+                Lepas
+              </TileButton>
+            </PhotoTile>
+          ))}
+          {photos.length < MAX_IMAGES_PER_PRODUCT && <AddPhotoTile label="Tambah foto" multiple onFiles={pickPhotos} />}
         </div>
-      </main>
-    </>
+      </FormSection>
+
+      {formError && <Notice tone="error">{formError}</Notice>}
+
+      <div className="flex flex-wrap items-center gap-3 border-t border-ink pt-6">
+        <Button type="submit" loading={progress !== null}>
+          {progress ?? 'Simpan produk'}
+        </Button>
+        <Button variant="ghost" href="/admin/products">
+          Batal
+        </Button>
+      </div>
+    </form>
   );
 }

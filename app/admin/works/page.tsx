@@ -1,17 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { isAdmin } from '../../lib/adminUtils';
-import Navbar from '../../component/Navbar';
-import { LoadingSpinner } from '../../component/LoadingStates';
 import ConfirmDialog from '../../component/ConfirmDialog';
+import { Button, EmptyState, PageHeader, Tag } from '../../component/ui';
 import { useToast } from '../../context/ToastContext';
-import { Plus, Edit2, Trash2, ChevronLeft, ImageOff, ChevronDown, Loader2 } from 'lucide-react';
 import { formatIdr } from '../../lib/categories';
 import { isReserved } from '../../lib/sales';
-import Link from 'next/link';
+import { AdminRow, ListSkeleton } from '../_components/AdminParts';
 
 interface Work {
   id: string;
@@ -24,257 +19,174 @@ interface Work {
   is_for_sale: boolean;
   sold_at: string | null;
   reserved_until: string | null;
+  featured_image_url: string | null;
 }
 
-/** One page of the signed-in admin's works. */
-async function fetchWorksPage(page: number): Promise<{ works: Work[]; total: number; hasMore: boolean }> {
+/** One page of the works, newest first. Null when the request failed. */
+async function fetchWorksPage(page: number): Promise<{ works: Work[]; total: number; hasMore: boolean } | null> {
   try {
     const res = await fetch(`/api/admin/works?page=${page}`);
     if (!res.ok) {
       console.error('Error fetching works:', await res.text());
-      return { works: [], total: 0, hasMore: false };
+      return null;
     }
     return await res.json();
   } catch (error) {
-    console.error('Error:', error);
-    return { works: [], total: 0, hasMore: false };
+    console.error('Error fetching works:', error);
+    return null;
   }
 }
 
+function saleLine(work: Work): string {
+  if (work.sold_at) return `Terjual ${formatIdr(work.price_idr ?? 0)}`;
+  if (work.is_for_sale && work.price_idr != null) return formatIdr(work.price_idr);
+  return 'Tidak dijual';
+}
+
 export default function AdminWorks() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
   const { showToast } = useToast();
   const [works, setWorks] = useState<Work[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [loadingWorks, setLoadingWorks] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Work | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    // Redirect jika belum login atau bukan admin
-    if (!loading) {
-      if (!user) {
-        router.push('/');
-      } else if (!isAdmin(user)) {
-        router.push('/account');
-      }
-    }
-  }, [user, loading, router]);
-
-  useEffect(() => {
-    if (!user || !isAdmin(user)) return;
-
     let ignore = false;
     fetchWorksPage(page).then((result) => {
       if (ignore) return;
-      setWorks((prev) => (page === 0 ? result.works : [...prev, ...result.works]));
-      setTotal(result.total);
-      setHasMore(result.hasMore);
-      setLoadingWorks(false);
+      if (result) {
+        setWorks((prev) => (page === 0 ? result.works : [...prev, ...result.works]));
+        setTotal(result.total);
+        setHasMore(result.hasMore);
+      } else {
+        setFailed(true);
+      }
+      setLoading(false);
       setLoadingMore(false);
     });
     return () => {
       ignore = true;
     };
-  }, [user, page]);
-
-  const loadMore = () => {
-    setLoadingMore(true);
-    setPage((prev) => prev + 1);
-  };
+  }, [page]);
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
     setDeleting(true);
-
     try {
       const res = await fetch(`/api/admin/works/${pendingDelete.id}`, { method: 'DELETE' });
-
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
-        console.error('Error deleting work:', detail);
-        showToast({ type: 'error', message: detail?.error || 'Failed to delete work' });
+        showToast({ type: 'error', message: detail?.error || 'Karya gagal dihapus.' });
         return;
       }
-
       setWorks((prev) => prev.filter((w) => w.id !== pendingDelete.id));
       setTotal((prev) => Math.max(0, prev - 1));
-      showToast({ type: 'success', message: 'Work deleted successfully' });
+      showToast({ type: 'success', message: 'Karya dihapus.' });
     } catch (error) {
-      console.error('Error:', error);
-      showToast({ type: 'error', message: 'Error deleting work' });
+      console.error('Error deleting work:', error);
+      showToast({ type: 'error', message: 'Karya gagal dihapus. Periksa koneksi Anda.' });
     } finally {
       setDeleting(false);
       setPendingDelete(null);
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-
-  if (!user || !isAdmin(user)) {
-    return null;
-  }
-
   return (
-    <>
-      <Navbar onOpenModal={() => {}} />
+    <div className="grid grid-cols-1 gap-8">
+      <PageHeader
+        eyebrow="Admin"
+        title="Karya"
+        description={loading ? 'Memuat…' : `${total} karya di arsip.`}
+        actions={<Button href="/admin/works/create">Unggah karya</Button>}
+      />
 
-      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors duration-300">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <button
-            onClick={() => router.push('/admin')}
-            className="flex items-center gap-2 py-2 mb-6 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
-          >
-            <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="font-sans text-sm font-medium">Back to Admin</span>
-          </button>
+      {loading ? (
+        <ListSkeleton label="Memuat karya" />
+      ) : failed && works.length === 0 ? (
+        <EmptyState
+          title="Karya gagal dimuat"
+          description="Periksa koneksi Anda, lalu muat ulang halaman."
+          action={
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              Muat ulang
+            </Button>
+          }
+        />
+      ) : works.length === 0 ? (
+        <EmptyState
+          title="Belum ada karya"
+          description="Unggah karya pertama untuk mengisi arsip studio."
+          action={<Button href="/admin/works/create">Unggah karya pertama</Button>}
+        />
+      ) : (
+        <>
+          <ul className="border-t border-line">
+            {works.map((work) => (
+              <AdminRow
+                key={work.id}
+                imageUrl={work.featured_image_url ?? null}
+                title={work.title}
+                tags={
+                  <>
+                    {work.sold_at ? (
+                      <Tag variant="solid">Terjual</Tag>
+                    ) : (
+                      isReserved(work) && <Tag variant="dashed">Sedang dibeli</Tag>
+                    )}
+                    {!work.is_published && <Tag variant="dashed">Disembunyikan</Tag>}
+                    {work.is_featured && <Tag>Pilihan</Tag>}
+                  </>
+                }
+                meta={[work.category, new Date(work.created_at).toLocaleDateString('id-ID'), saleLine(work)].join(' · ')}
+                actions={
+                  <>
+                    <Button variant="secondary" size="sm" href={`/admin/works/${work.id}/edit`}>
+                      Ubah
+                    </Button>
+                    <Button variant="danger" size="sm" onClick={() => setPendingDelete(work)}>
+                      Hapus
+                    </Button>
+                  </>
+                }
+              />
+            ))}
+          </ul>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center mb-12">
-            <div>
-              <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl italic font-medium mb-2">
-                Manage Works
-              </h1>
-              <p className="font-sans text-sm text-black/60 dark:text-white/60">
-                Total: <span className="text-black dark:text-white font-medium">{total}</span> artworks
-              </p>
-            </div>
-            <Link
-              href="/admin/works/create"
-              className="self-start sm:self-auto flex items-center gap-2 px-6 py-3.5 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:opacity-90 transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
-            >
-              <Plus size={16} />
-              <span>New Work</span>
-            </Link>
-          </div>
-
-          {/* Works List */}
-          {loadingWorks ? (
-            <div className="text-center py-16">
-              <p className="font-sans text-sm text-black/50 dark:text-white/50 animate-pulse">Loading works...</p>
-            </div>
-          ) : works.length === 0 ? (
-            <div className="bg-white/80 dark:bg-zinc-950/60 border border-dashed border-black/10 dark:border-white/15 rounded-2xl p-12 text-center transition-colors">
-              <div className="mb-4">
-                <div className="w-16 h-16 bg-violet-500/10 rounded-full mx-auto flex items-center justify-center">
-                  <ImageOff size={28} strokeWidth={1.25} className="opacity-40" />
-                </div>
-              </div>
-              <h2 className="font-serif text-2xl italic mb-2">No Works Yet</h2>
-              <p className="font-sans text-sm text-black/60 dark:text-white/60 mb-6">Create your first work to showcase your art</p>
-              <Link
-                href="/admin/works/create"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:opacity-90 transition-all font-sans text-[11px] font-black uppercase tracking-[0.2em]"
+          {hasMore && (
+            <div className="flex justify-center">
+              <Button
+                variant="secondary"
+                loading={loadingMore}
+                onClick={() => {
+                  setLoadingMore(true);
+                  setPage((p) => p + 1);
+                }}
               >
-                <Plus size={14} />
-                <span>Create First Work</span>
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {works.map((work) => (
-                <div
-                  key={work.id}
-                  className="bg-white/80 dark:bg-zinc-950/60 border border-black/5 dark:border-white/10 rounded-2xl p-6 hover:border-violet-500/30 dark:hover:border-violet-500/30 transition-all shadow-sm backdrop-blur-sm"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-3 mb-2">
-                        <h3 className="font-serif text-lg italic truncate">{work.title}</h3>
-                        {work.is_featured && (
-                          <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/30 border border-amber-300/60 dark:border-amber-800/40 rounded-full font-sans text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                            Featured
-                          </span>
-                        )}
-                        {!work.is_published && (
-                          <span className="px-2 py-0.5 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-full font-sans text-[9px] font-bold uppercase tracking-wider text-black/60 dark:text-white/60">
-                            Unpublished
-                          </span>
-                        )}
-                        {work.sold_at ? (
-                          <span className="px-2 py-0.5 bg-zinc-950 dark:bg-white rounded-full font-sans text-[9px] font-bold uppercase tracking-wider text-white dark:text-black">
-                            Sold
-                          </span>
-                        ) : (
-                          isReserved(work) && (
-                            <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 rounded-full font-sans text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                              Checkout in progress
-                            </span>
-                          )
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 font-sans text-xs text-black/50 dark:text-white/50">
-                        <span>{work.category}</span>
-                        <span>{new Date(work.created_at).toLocaleDateString('id-ID')}</span>
-                        <span
-                          className={
-                            work.sold_at
-                              ? 'font-bold text-black dark:text-white'
-                              : work.is_for_sale
-                                ? 'font-bold text-emerald-600 dark:text-emerald-400'
-                                : ''
-                          }
-                        >
-                          {work.sold_at
-                            ? `Sold for ${formatIdr(work.price_idr ?? 0)}`
-                            : work.is_for_sale && work.price_idr != null
-                              ? formatIdr(work.price_idr)
-                              : 'Not for sale'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Link
-                        href={`/admin/works/${work.id}/edit`}
-                        className="p-2.5 hover:bg-violet-500/10 rounded-xl transition-colors"
-                        title="Edit"
-                      >
-                        <Edit2 size={16} strokeWidth={1.5} className="text-black/60 dark:text-white/60 hover:text-violet-500 dark:hover:text-violet-400" />
-                      </Link>
-                      <button
-                        onClick={() => setPendingDelete(work)}
-                        className="p-2.5 hover:bg-rose-500/10 rounded-xl transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} strokeWidth={1.5} className="text-rose-500/80 dark:text-rose-400/80 hover:text-rose-600 dark:hover:text-rose-300" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {hasMore && (
-                <div className="flex justify-center pt-6">
-                  <button
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    className="flex min-h-[48px] items-center gap-2 rounded-xl border border-black/10 bg-black/[0.03] px-8 font-sans text-[11px] font-black uppercase tracking-[0.2em] text-black transition-colors hover:bg-black/5 disabled:cursor-wait disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/10"
-                  >
-                    {loadingMore ? <Loader2 size={15} className="animate-spin" /> : <ChevronDown size={15} />}
-                    {loadingMore ? 'Loading...' : `Load more (${works.length}/${total})`}
-                  </button>
-                </div>
-              )}
+                Muat lebih banyak ({works.length}/{total})
+              </Button>
             </div>
           )}
-        </div>
-      </main>
+        </>
+      )}
 
       <ConfirmDialog
         isOpen={pendingDelete !== null}
-        title="Delete work?"
-        message={pendingDelete ? `"${pendingDelete.title}" and all its images will be permanently removed. This cannot be undone.` : ''}
-        confirmLabel="Delete"
+        title="Hapus karya?"
+        message={
+          pendingDelete
+            ? `"${pendingDelete.title}" beserta semua gambarnya akan dihapus permanen dan tidak bisa dikembalikan.`
+            : ''
+        }
+        confirmLabel="Hapus"
         loading={deleting}
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </>
+    </div>
   );
 }

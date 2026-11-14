@@ -27,30 +27,30 @@ function isWholeNumber(value: unknown): value is number {
 /**
  * Validate a product for create (`partial = false`) or update (`partial = true`,
  * where absent fields are left alone). Returns an error message, or null.
- * Admin-facing, so in English like the rest of the admin panel.
+ * Shown to the admin as is, so in Indonesian like the rest of the site.
  */
 export function validateProductInput(input: ProductInput, partial = false): string | null {
   const { name, description, price_idr, compare_at_price_idr, stock, is_published } = input;
 
   if (!partial || name !== undefined) {
-    if (typeof name !== 'string' || !name.trim()) return 'Product name is required';
-    if (name.trim().length > PRODUCT_NAME_MAX) return `Product name must be at most ${PRODUCT_NAME_MAX} characters`;
+    if (typeof name !== 'string' || !name.trim()) return 'Nama produk wajib diisi';
+    if (name.trim().length > PRODUCT_NAME_MAX) return `Nama produk maksimal ${PRODUCT_NAME_MAX} karakter`;
   }
   if (description !== undefined && description !== null) {
-    if (typeof description !== 'string') return 'Description is invalid';
+    if (typeof description !== 'string') return 'Deskripsi tidak valid';
     if (description.length > PRODUCT_DESCRIPTION_MAX) {
-      return `Description must be at most ${PRODUCT_DESCRIPTION_MAX} characters`;
+      return `Deskripsi maksimal ${PRODUCT_DESCRIPTION_MAX} karakter`;
     }
   }
   if (!partial || price_idr !== undefined) {
-    if (!isWholeNumber(price_idr)) return 'Price must be a whole number of rupiah';
+    if (!isWholeNumber(price_idr)) return 'Harga harus bilangan bulat rupiah';
     if (price_idr < MIN_PRICE_IDR) {
-      return `Price must be at least Rp ${MIN_PRICE_IDR.toLocaleString('id-ID')}`;
+      return `Harga minimal Rp ${MIN_PRICE_IDR.toLocaleString('id-ID')}`;
     }
   }
   if (compare_at_price_idr !== undefined && compare_at_price_idr !== null) {
     if (!isWholeNumber(compare_at_price_idr) || compare_at_price_idr < 0) {
-      return 'Compare-at price must be a whole number of rupiah, 0 or more';
+      return 'Harga coret harus bilangan bulat rupiah, 0 atau lebih';
     }
   }
   if (isWholeNumber(price_idr)) {
@@ -58,11 +58,11 @@ export function validateProductInput(input: ProductInput, partial = false): stri
     if (saleError) return saleError;
   }
   if (!partial || stock !== undefined) {
-    if (!isWholeNumber(stock) || stock < 0) return 'Stock must be a whole number, 0 or more';
-    if (stock > MAX_STOCK) return `Stock must be at most ${MAX_STOCK.toLocaleString('id-ID')}`;
+    if (!isWholeNumber(stock) || stock < 0) return 'Stok harus bilangan bulat, 0 atau lebih';
+    if (stock > MAX_STOCK) return `Stok maksimal ${MAX_STOCK.toLocaleString('id-ID')}`;
   }
   if (is_published !== undefined && typeof is_published !== 'boolean') {
-    return 'Published must be true or false';
+    return 'Status tayang tidak valid';
   }
   return null;
 }
@@ -75,7 +75,7 @@ export function validateProductInput(input: ProductInput, partial = false): stri
 export function validateSalePrice(priceIdr: number, compareAtPriceIdr: unknown): string | null {
   if (compareAtPriceIdr === undefined || compareAtPriceIdr === null) return null;
   if (typeof compareAtPriceIdr === 'number' && compareAtPriceIdr <= priceIdr) {
-    return 'Compare-at price must be higher than the price (or left empty)';
+    return 'Harga coret harus lebih tinggi dari harga jual, atau dikosongkan';
   }
   return null;
 }
@@ -95,8 +95,8 @@ export function isNewArrival(createdAt: string): boolean {
 }
 
 export function validateShippingFee(fee: unknown): string | null {
-  if (!isWholeNumber(fee) || fee < 0) return 'Shipping fee must be a whole number of rupiah, 0 or more';
-  if (fee > MAX_SHIPPING_FEE_IDR) return 'Shipping fee is too large';
+  if (!isWholeNumber(fee) || fee < 0) return 'Ongkos kirim harus bilangan bulat rupiah, 0 atau lebih';
+  if (fee > MAX_SHIPPING_FEE_IDR) return 'Ongkos kirim terlalu besar';
   return null;
 }
 

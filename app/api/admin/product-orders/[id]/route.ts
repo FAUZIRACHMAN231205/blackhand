@@ -63,10 +63,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const courier = text(body.courier);
     const tracking = text(body.tracking_number);
     if (courier.length < 2 || courier.length > 50) {
-      return NextResponse.json({ error: 'Courier is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Nama kurir wajib diisi (2–50 karakter).' }, { status: 400 });
     }
     if (tracking.length < 3 || tracking.length > 60) {
-      return NextResponse.json({ error: 'Tracking number is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Nomor resi wajib diisi (3–60 karakter).' }, { status: 400 });
     }
     Object.assign(updates, {
       fulfillment_status: 'shipped',
