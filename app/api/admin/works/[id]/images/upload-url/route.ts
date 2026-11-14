@@ -25,28 +25,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq('id', id)
     .maybeSingle();
 
-  if (!work) return NextResponse.json({ error: 'Work not found' }, { status: 404 });
-  if (work.created_by !== auth.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!work) return NextResponse.json({ error: 'Karya tidak ditemukan.' }, { status: 404 });
+  if (work.created_by !== auth.user.id) return NextResponse.json({ error: 'Anda tidak punya akses untuk ini.' }, { status: 403 });
 
   try {
     const { fileName, contentType, size } = await request.json();
     if (!fileName || typeof fileName !== 'string') {
-      return NextResponse.json({ error: 'fileName is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Nama file wajib ada.' }, { status: 400 });
     }
 
     const ext = (fileName.split('.').pop() || '').toLowerCase();
     if (!(ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)) {
       return NextResponse.json(
-        { error: `Unsupported file type. Allowed: ${ALLOWED_IMAGE_EXTENSIONS.join(', ')}` },
+        { error: `Jenis file tidak didukung. Gunakan: ${ALLOWED_IMAGE_EXTENSIONS.join(', ')}` },
         { status: 400 }
       );
     }
     if (contentType !== undefined && !(ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType)) {
-      return NextResponse.json({ error: 'Only image uploads are allowed' }, { status: 400 });
+      return NextResponse.json({ error: 'Hanya file gambar yang bisa diunggah.' }, { status: 400 });
     }
     if (typeof size === 'number' && size > MAX_IMAGE_BYTES) {
       return NextResponse.json(
-        { error: `Image is too large (max ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB)` },
+        { error: `Gambar terlalu besar (maksimal ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB)` },
         { status: 400 }
       );
     }
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (error || !data) {
       console.error('Error creating signed upload URL:', error);
-      return NextResponse.json({ error: 'Failed to create upload URL' }, { status: 500 });
+      return NextResponse.json({ error: 'Unggahan gagal disiapkan.' }, { status: 500 });
     }
 
     return NextResponse.json({

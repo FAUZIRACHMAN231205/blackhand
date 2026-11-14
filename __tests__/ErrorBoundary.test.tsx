@@ -34,8 +34,8 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     )
 
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
-    expect(screen.getByText(/An unexpected error occurred/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Terjadi kesalahan' })).toBeInTheDocument()
+    expect(screen.getByText(/gagal ditampilkan/)).toBeInTheDocument()
   })
 
   it('shows error details in expandable section', () => {
@@ -49,11 +49,11 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     )
 
-    const details = screen.getByText('Error Details')
+    const details = screen.getByText('Detail kesalahan')
     expect(details).toBeInTheDocument()
   })
 
-  it('has Try Again and Home buttons', () => {
+  it('offers to try again or go home', () => {
     const ThrowError = () => {
       throw new Error('Test error')
     }
@@ -64,7 +64,7 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     )
 
-    expect(screen.getByText('Try Again')).toBeInTheDocument()
-    expect(screen.getByText('Home')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Coba lagi' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ke beranda' })).toHaveAttribute('href', '/')
   })
 })

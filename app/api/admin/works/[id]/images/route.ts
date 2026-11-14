@@ -20,8 +20,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq('id', id)
     .maybeSingle();
 
-  if (!work) return NextResponse.json({ error: 'Work not found' }, { status: 404 });
-  if (work.created_by !== auth.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!work) return NextResponse.json({ error: 'Karya tidak ditemukan.' }, { status: 404 });
+  if (work.created_by !== auth.user.id) return NextResponse.json({ error: 'Anda tidak punya akses untuk ini.' }, { status: 403 });
 
   try {
     const { original_path, display_order, is_featured } = await request.json();
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       typeof original_path !== 'string' ||
       !original_path.startsWith(`works/${id}/`)
     ) {
-      return NextResponse.json({ error: 'A valid original_path is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Lokasi file asli tidak valid.' }, { status: 400 });
     }
 
     const { count } = await supabaseAdmin
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const previewUrl = await renderPreview(id, original_path);
     if (!previewUrl) {
-      return NextResponse.json({ error: 'Failed to process the uploaded image' }, { status: 500 });
+      return NextResponse.json({ error: 'Gambar yang diunggah gagal diproses.' }, { status: 500 });
     }
 
     const { data, error } = await supabaseAdmin
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (error || !data) {
       console.error('Error inserting work_image:', error);
-      return NextResponse.json({ error: 'Failed to save image' }, { status: 500 });
+      return NextResponse.json({ error: 'Gambar gagal disimpan.' }, { status: 500 });
     }
 
     // Promoting handles clearing siblings and syncing works.featured_image_url.

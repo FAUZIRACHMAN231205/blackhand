@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('Error fetching sales:', error);
-    return NextResponse.json({ error: 'Failed to fetch sales' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memuat penjualan.' }, { status: 500 });
   }
 
   const sales = data ?? [];

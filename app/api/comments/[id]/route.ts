@@ -16,7 +16,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     .maybeSingle();
 
   if (!comment) {
-    return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+    return NextResponse.json({ error: 'Komentar tidak ditemukan.' }, { status: 404 });
   }
 
   // Owners can always delete their own comment; otherwise fall back to a live
@@ -25,7 +25,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (!isOwner) {
     const fresh = await getUserById(auth.user.id);
     if (!fresh || !isAdmin(fresh)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: 'Anda tidak punya akses untuk ini.' }, { status: 403 });
     }
   }
 
@@ -33,7 +33,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   if (error) {
     console.error('Error deleting comment:', error);
-    return NextResponse.json({ error: 'Failed to delete comment' }, { status: 500 });
+    return NextResponse.json({ error: 'Komentar gagal dihapus.' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

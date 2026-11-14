@@ -44,7 +44,7 @@ export async function GET() {
 
   if (error) {
     console.error('Error fetching purchases:', error);
-    return NextResponse.json({ error: 'Gagal memuat album.' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memuat koleksi.' }, { status: 500 });
   }
 
   const rows = (data ?? []) as unknown as OrderRow[];

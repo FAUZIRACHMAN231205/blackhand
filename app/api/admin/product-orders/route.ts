@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('Error fetching product orders:', error);
-    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memuat pesanan.' }, { status: 500 });
   }
 
   const orders = data ?? [];

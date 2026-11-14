@@ -10,7 +10,7 @@ type Guard = { user: User } | { error: NextResponse };
 export async function requireUser(): Promise<Guard> {
   const user = await getSession();
   if (!user) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+    return { error: NextResponse.json({ error: 'Masuk dulu untuk melanjutkan.' }, { status: 401 }) };
   }
   return { user };
 }
@@ -24,10 +24,10 @@ export async function requireAdmin(): Promise<Guard> {
   // therefore loses access immediately instead of when their token expires.
   const fresh = await getUserById(result.user.id);
   if (!fresh) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+    return { error: NextResponse.json({ error: 'Masuk dulu untuk melanjutkan.' }, { status: 401 }) };
   }
   if (!isAdmin(fresh)) {
-    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+    return { error: NextResponse.json({ error: 'Anda tidak punya akses untuk ini.' }, { status: 403 }) };
   }
   return { user: fresh };
 }

@@ -10,7 +10,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
 
   const { data: product } = await supabaseAdmin.from('products').select('*').eq('id', id).maybeSingle();
-  if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+  if (!product) return NextResponse.json({ error: 'Produk tidak ditemukan.' }, { status: 404 });
 
   const { data: images } = await supabaseAdmin
     .from('product_images')
@@ -31,7 +31,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return NextResponse.json({ error: 'Data permintaan tidak valid.' }, { status: 400 });
   }
 
   const invalid = validateProductInput(body, true);
@@ -71,9 +71,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   if (error) {
     console.error('Error updating product:', error);
-    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });
+    return NextResponse.json({ error: 'Produk gagal diperbarui.' }, { status: 500 });
   }
-  if (!data) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+  if (!data) return NextResponse.json({ error: 'Produk tidak ditemukan.' }, { status: 404 });
 
   return NextResponse.json({ success: true });
 }
@@ -114,7 +114,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { error } = await supabaseAdmin.from('products').delete().eq('id', id);
   if (error) {
     console.error('Error deleting product:', error);
-    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 });
+    return NextResponse.json({ error: 'Produk gagal dihapus.' }, { status: 500 });
   }
 
   await removeProductImages((images ?? []).map((img) => img.storage_path));

@@ -11,6 +11,7 @@ import {
   TextField,
 } from '../component/ui';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 
 export function ThemeSwitch() {
   const { isDark, toggleTheme } = useTheme();
@@ -37,6 +38,23 @@ export function DemoFilterTabs() {
         { value: 'Sculptures', label: 'Sculptures' },
       ]}
     />
+  );
+}
+
+export function DemoToasts() {
+  const { showToast } = useToast();
+  return (
+    <div className="flex flex-wrap gap-3">
+      <Button variant="secondary" size="sm" onClick={() => showToast({ type: 'success', message: 'Perubahan disimpan.' })}>
+        Berhasil
+      </Button>
+      <Button variant="secondary" size="sm" onClick={() => showToast({ type: 'info', message: 'Pesanan tersimpan. Lanjutkan pembayaran dalam 30 menit.' })}>
+        Info
+      </Button>
+      <Button variant="secondary" size="sm" onClick={() => showToast({ type: 'error', message: 'Pembayaran gagal. Silakan coba lagi.' })}>
+        Gagal
+      </Button>
+    </div>
   );
 }
 

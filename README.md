@@ -18,7 +18,7 @@ authentication** layer (email one-time codes + Google OAuth) on top of **Supabas
 - **Exclusive artwork sales** — every image is shown clean to everyone. A work for sale is sold to exactly **one** buyer: checkout reserves it for 30 minutes, and once paid it shows as *Terjual* — still viewable, but nobody else can buy or download it. The buyer downloads the full-resolution originals (JPG, ZIP, PDF, or straight to Google Drive).
 - **Merchandise shop** — `/shop` sells accessories and merchandise with stock, direct checkout via Midtrans, and a flat shipping fee the admin sets. Buyers follow their orders (and tracking numbers) under *Pesanan Saya*.
 - **Admin panel** — works (up to 6 images each, featured cover, price/availability), products (photos, stock, shipping fee), and *Orders & Sales*: ship merch orders with courier + tracking number, see who bought each work, and spot payments that need a refund.
-- **Installable (PWA)** — phones can add Blackhand to the home screen and open it full-screen like an app: web app manifest, brand icons generated from the project's Augustus font, a one-tap "Pasang" suggestion on Android/Chrome and Share → *Add to Home Screen* steps on iOS, and a branded offline page.
+- **Installable (PWA)** — phones can add Blackhand to the home screen and open it full-screen like an app: web app manifest, brand icons drawn in the project's Augustus font on the site's dark paper colour, a one-tap "Pasang" suggestion on Android/Chrome and Share → *Add to Home Screen* steps on iOS, and a branded offline page.
 - **Polished UX** — light/dark theme, responsive/mobile-first layouts, toasts, skeletons, and an error boundary.
 
 ## Tech stack

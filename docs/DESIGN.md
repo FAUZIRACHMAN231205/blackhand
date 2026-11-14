@@ -44,8 +44,9 @@ Defined in `app/globals.css` (`--bh-*` raw values, `@theme inline` utilities).
 | Labels | Poppins | 11 px, bold, UPPERCASE, `tracking-[0.2em]` |
 | Prices | Poppins | Bold, `tabular-nums` |
 
-Augustus is **not** used for paragraphs (hard to read in long text). At most a
-short quote on the Manifesto page.
+Augustus is used only for the app icon ("B."), drawn by `app/lib/brandIcon.tsx`;
+it is not loaded by any page. The `<body>` default is Poppins, so text without a
+font class is already right.
 
 ## Space and layout
 
@@ -111,4 +112,19 @@ redirects for retired addresses all come from `app/lib/routes.ts`.
 3. **Halaman publik** — Beranda, Karya, Detail, Toko, Produk, Pembayaran, Manifesto. ✅
 4. **Akun dan admin.** ✅
 5. **Rapikan** — Indonesian copy everywhere, remove old components, final check at
-   320 / 375 / 768 / 1280 px, light and dark.
+   320 / 375 / 768 / 1280 px, light and dark. ✅
+
+The redesign is complete. Everything visible now follows this file; anything new
+starts from the components above.
+
+## Also in the system
+
+- Toasts (`app/component/Toast.tsx`): ink boxes at the bottom; an error has a
+  red rule and is announced as an alert. Try them on `/design`.
+- Browser chrome, the PWA icon and splash, and `public/offline.html` use the
+  `paper` colour (`#0a0a0a` in dark). Change `THEME_COLORS` in
+  `app/lib/theme.ts` and `BRAND_BACKGROUND` together with the tokens.
+- Page titles: "Halaman · Blackhand", set by each section's `layout.tsx`.
+- API error messages are Indonesian and never echo raw server errors; the
+  Midtrans webhook keeps English, since only Midtrans reads it.
+- Support contact: `SUPPORT_EMAIL` in `app/lib/contact.ts`.

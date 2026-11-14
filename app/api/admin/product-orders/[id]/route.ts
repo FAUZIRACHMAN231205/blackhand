@@ -24,7 +24,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return NextResponse.json({ error: 'Data permintaan tidak valid.' }, { status: 400 });
   }
   const action = body.action as FulfillmentAction;
 
@@ -33,11 +33,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .select('id, status, fulfillment_status')
     .eq('id', id)
     .maybeSingle();
-  if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+  if (!order) return NextResponse.json({ error: 'Pesanan tidak ditemukan.' }, { status: 404 });
 
   const current = order.fulfillment_status as FulfillmentStatus;
   if (!allowedFulfillmentActions(order.status as PaymentStatus, current).includes(action)) {
-    return NextResponse.json({ error: 'That step is not possible for this order now.' }, { status: 409 });
+    return NextResponse.json({ error: 'Langkah itu tidak bisa dilakukan untuk pesanan ini sekarang.' }, { status: 409 });
   }
 
   if (action === 'cancel') {
@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     });
     if (error) {
       console.error('Error cancelling product order:', error);
-      return NextResponse.json({ error: 'Failed to cancel order' }, { status: 500 });
+      return NextResponse.json({ error: 'Pesanan gagal dibatalkan.' }, { status: 500 });
     }
     if (!cancelled) {
       return NextResponse.json({ error: 'This order can no longer be cancelled.' }, { status: 409 });
@@ -89,10 +89,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   if (error) {
     console.error('Error updating product order:', error);
-    return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+    return NextResponse.json({ error: 'Pesanan gagal diperbarui.' }, { status: 500 });
   }
   if (!updated) {
-    return NextResponse.json({ error: 'The order changed meanwhile. Reload and try again.' }, { status: 409 });
+    return NextResponse.json({ error: 'Pesanan baru saja berubah. Muat ulang lalu coba lagi.' }, { status: 409 });
   }
 
   return NextResponse.json({ success: true, fulfillment_status: updated.fulfillment_status });

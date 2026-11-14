@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Share, SquarePlus, X } from 'lucide-react';
 import { INSTALL_DISMISS_KEY, installMethod, isDismissed } from '../lib/pwa';
+import { Button, cx, focusRing } from './ui';
 
 /** Chrome's install event, which TypeScript's DOM types don't include yet. */
 interface BeforeInstallPromptEvent extends Event {
@@ -93,22 +94,22 @@ export default function InstallPrompt() {
     <div
       role="dialog"
       aria-label="Pasang aplikasi Blackhand"
-      className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-[150] mx-auto max-w-md animate-fade-in-up rounded-2xl border border-white/10 bg-zinc-950/95 p-4 text-white shadow-2xl backdrop-blur-md"
+      className="animate-rise-in fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[150] mx-auto max-w-md border border-ink bg-paper p-4 text-ink"
     >
       <div className="flex items-start gap-3">
-        <img src="/icon/192" alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-xl" />
+        {/* eslint-disable-next-line @next/next/no-img-element -- the app icon route, already sized */}
+        <img src="/icon/192" alt="" width={44} height={44} className="h-11 w-11 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="font-sans text-sm font-bold">Pasang Blackhand</p>
+          <p className="font-sans text-[11px] font-bold uppercase tracking-[0.18em]">Pasang Blackhand</p>
           {method === 'prompt' ? (
-            <p className="mt-0.5 font-sans text-xs leading-snug text-white/70">
-              Buka galeri dan toko langsung dari layar utama, layar penuh seperti aplikasi.
+            <p className="mt-1 font-sans text-sm leading-snug text-mute">
+              Buka karya dan toko langsung dari layar utama, layar penuh seperti aplikasi.
             </p>
           ) : (
-            <p className="mt-0.5 font-sans text-xs leading-relaxed text-white/70">
-              Ketuk{' '}
-              <Share size={13} className="inline -mt-0.5" aria-label="Bagikan" /> <strong>Bagikan</strong>, lalu
-              pilih <SquarePlus size={13} className="inline -mt-0.5" aria-hidden />{' '}
-              <strong>Tambahkan ke Layar Utama</strong>.
+            <p className="mt-1 font-sans text-sm leading-relaxed text-mute">
+              Ketuk <Share size={13} className="-mt-0.5 inline" aria-label="Bagikan" /> <strong className="text-ink">Bagikan</strong>,
+              lalu pilih <SquarePlus size={13} className="-mt-0.5 inline" aria-hidden />{' '}
+              <strong className="text-ink">Tambahkan ke Layar Utama</strong>.
             </p>
           )}
         </div>
@@ -116,27 +117,19 @@ export default function InstallPrompt() {
           type="button"
           onClick={dismiss}
           aria-label="Tutup"
-          className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white/60 transition-colors hover:text-white"
+          className={cx('-m-2 flex h-11 w-11 shrink-0 items-center justify-center text-mute hover:text-ink', focusRing)}
         >
-          <X size={18} />
+          <X size={18} aria-hidden />
         </button>
       </div>
       {method === 'prompt' && deferred && (
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            onClick={dismiss}
-            className="min-h-[44px] flex-1 rounded-xl border border-white/15 font-sans text-[11px] font-black uppercase tracking-[0.2em] text-white/80 transition-colors hover:bg-white/10"
-          >
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button variant="secondary" size="sm" onClick={dismiss}>
             Nanti
-          </button>
-          <button
-            type="button"
-            onClick={install}
-            className="min-h-[44px] flex-1 rounded-xl bg-white font-sans text-[11px] font-black uppercase tracking-[0.2em] text-black transition-colors hover:bg-zinc-200"
-          >
+          </Button>
+          <Button size="sm" onClick={install}>
             Pasang
-          </button>
+          </Button>
         </div>
       )}
     </div>

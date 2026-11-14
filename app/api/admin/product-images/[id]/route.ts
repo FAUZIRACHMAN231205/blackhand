@@ -20,7 +20,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { id } = await params;
 
   const image = await loadImage(id);
-  if (!image) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
+  if (!image) return NextResponse.json({ error: 'Gambar tidak ditemukan.' }, { status: 404 });
 
   const { data: first } = await supabaseAdmin
     .from('product_images')
@@ -45,12 +45,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { id } = await params;
 
   const image = await loadImage(id);
-  if (!image) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
+  if (!image) return NextResponse.json({ error: 'Gambar tidak ditemukan.' }, { status: 404 });
 
   const { error } = await supabaseAdmin.from('product_images').delete().eq('id', id);
   if (error) {
     console.error('Error deleting product image:', error);
-    return NextResponse.json({ error: 'Failed to delete image' }, { status: 500 });
+    return NextResponse.json({ error: 'Gambar gagal dihapus.' }, { status: 500 });
   }
 
   await removeProductImages([image.storage_path]);

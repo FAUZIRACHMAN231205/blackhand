@@ -36,9 +36,11 @@ describe('AuthModal', () => {
     global.fetch = fetchMock as unknown as typeof fetch
   })
 
-  it('renders nothing while closed', () => {
-    const { container } = renderModal(false)
-    expect(container).toBeEmptyDOMElement()
+  it('renders no dialog while closed', () => {
+    renderModal(false)
+    // The toast live region is always mounted (so messages get announced);
+    // the sign-in dialog itself must not be.
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('opens on the email step', () => {

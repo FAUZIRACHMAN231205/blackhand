@@ -3,8 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 
-/** Matches the app's dark surfaces (slate-950), so the splash screen and icon agree. */
-export const BRAND_BACKGROUND = '#020617';
+/** The dark `paper` token (app/globals.css), so the splash screen, icon and app agree. */
+export const BRAND_BACKGROUND = '#0a0a0a';
 
 /**
  * The app icon: a white "B." set in Augustus, the project's own display face,
@@ -38,7 +38,7 @@ export async function renderBrandIcon(size: number, { safeZone = false } = {}) {
           style={{
             display: 'flex',
             alignItems: 'flex-end',
-            color: '#ffffff',
+            color: '#f5f5f5',
             fontFamily: 'Augustus',
             fontSize: glyph,
             lineHeight: 1,
@@ -50,7 +50,7 @@ export async function renderBrandIcon(size: number, { safeZone = false } = {}) {
               width: dot,
               height: dot,
               borderRadius: dot,
-              background: '#71717a',
+              background: '#9b9b9b',
               marginLeft: Math.round(glyph * 0.05),
               // Lift the dot from the line box's bottom onto the baseline.
               marginBottom: Math.round(glyph * 0.215),
