@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { pageRange, splitPage, GALLERY_PAGE_SIZE, FEED_PAGE_SIZE } from '@/app/lib/pagination'
+import { pageRange, splitPage, GALLERY_PAGE_SIZE, SHOP_PAGE_SIZE } from '@/app/lib/pagination'
 
 describe('pageRange', () => {
   it('starts at the top of the list', () => {
@@ -38,7 +38,7 @@ describe('splitPage', () => {
 
 describe('page sizes', () => {
   it('are whole positive numbers', () => {
-    for (const size of [GALLERY_PAGE_SIZE, FEED_PAGE_SIZE]) {
+    for (const size of [GALLERY_PAGE_SIZE, SHOP_PAGE_SIZE]) {
       expect(Number.isInteger(size)).toBe(true)
       expect(size).toBeGreaterThan(0)
     }

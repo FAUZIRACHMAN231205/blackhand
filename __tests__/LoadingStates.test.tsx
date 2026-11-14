@@ -4,7 +4,6 @@ import {
   LoadingSpinner,
   SkeletonCard,
   SkeletonGrid,
-  DashboardSkeleton,
 } from '@/app/component/LoadingStates'
 
 describe('LoadingStates Components', () => {
@@ -68,22 +67,6 @@ describe('LoadingStates Components', () => {
 
       const grid = container.querySelector('.grid')
       expect(grid).toHaveClass('custom-grid')
-    })
-  })
-
-  describe('DashboardSkeleton', () => {
-    it('renders dashboard skeleton layout', () => {
-      const { container } = render(<DashboardSkeleton />)
-
-      const animatedElements = container.querySelectorAll('.animate-pulse')
-      expect(animatedElements.length).toBeGreaterThan(0)
-    })
-
-    it('renders main layout structure', () => {
-      const { container } = render(<DashboardSkeleton />)
-
-      expect(container.querySelector('.min-h-\\[100dvh\\]')).toBeInTheDocument()
-      expect(container.querySelector('.grid')).toBeInTheDocument()
     })
   })
 })

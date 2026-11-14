@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, Loader2, PackageOpen, ShoppingBag, Truck } from 'lucide-react';
 import Navbar from '../component/Navbar';
 import AuthModal from '../component/AuthModal';
+import SiteFooter from '../component/SiteFooter';
 import { LoadingSpinner, SkeletonGrid } from '../component/LoadingStates';
 import { formatIdr } from '../lib/categories';
 import { discountPercent, isNewArrival } from '../lib/shop';
@@ -235,6 +236,8 @@ function ShopContent() {
           )}
         </div>
       </main>
+
+      <SiteFooter />
     </>
   );
 }

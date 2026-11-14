@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
 import Navbar from '../../component/Navbar';
 import AuthModal from '../../component/AuthModal';
+import SiteFooter from '../../component/SiteFooter';
 import { LoadingSpinner } from '../../component/LoadingStates';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import RatingStars from '../../component/RatingStars';
@@ -309,6 +310,8 @@ export default function GalleryDetail() {
           </div>
         </div>
       </main>
+
+      <SiteFooter />
     </>
   );
 }

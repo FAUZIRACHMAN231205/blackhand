@@ -6,12 +6,14 @@ import Link from 'next/link';
 import { ChevronLeft, Loader2, Minus, Plus, ShoppingBag, Truck } from 'lucide-react';
 import Navbar from '../../component/Navbar';
 import AuthModal from '../../component/AuthModal';
+import SiteFooter from '../../component/SiteFooter';
 import { LoadingSpinner } from '../../component/LoadingStates';
 import SnapScript, { openSnap } from '../../component/SnapScript';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../context/ToastContext';
 import { formatIdr } from '../../lib/categories';
 import { PAYMENT_WINDOW_MINUTES } from '../../lib/sales';
+import { ACCOUNT_ORDERS } from '../../lib/routes';
 import {
   discountPercent,
   EMPTY_SHIPPING,
@@ -132,23 +134,23 @@ export default function ProductDetail() {
       }
 
       const opened = openSnap(data.token, {
-        onSuccess: () => router.push('/orders?placed=1'),
-        onPending: () => router.push('/orders?placed=1'),
+        onSuccess: () => router.push(`${ACCOUNT_ORDERS}?placed=1`),
+        onPending: () => router.push(`${ACCOUNT_ORDERS}?placed=1`),
         onError: () => showToast({ type: 'error', message: 'Pembayaran gagal. Silakan coba lagi.' }),
         onClose: () => {
           showToast({
             type: 'info',
-            message: `Pesanan tersimpan. Lanjutkan pembayaran dari Pesanan Saya dalam ${PAYMENT_WINDOW_MINUTES} menit.`,
+            message: `Pesanan tersimpan. Lanjutkan pembayaran dari Akun › Pesanan dalam ${PAYMENT_WINDOW_MINUTES} menit.`,
           });
-          router.push('/orders');
+          router.push(ACCOUNT_ORDERS);
         },
       });
       if (!opened) {
         showToast({
           type: 'error',
-          message: 'Pembayaran belum siap. Lanjutkan dari Pesanan Saya sebentar lagi.',
+          message: 'Pembayaran belum siap. Lanjutkan dari Akun › Pesanan sebentar lagi.',
         });
-        router.push('/orders');
+        router.push(ACCOUNT_ORDERS);
       }
     } catch (err) {
       console.error('Checkout error:', err);
@@ -388,6 +390,8 @@ export default function ProductDetail() {
           </div>
         </div>
       </main>
+
+      <SiteFooter />
     </>
   );
 }

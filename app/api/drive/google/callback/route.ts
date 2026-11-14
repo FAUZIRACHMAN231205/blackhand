@@ -12,6 +12,7 @@ import {
   trashDriveFolder,
 } from '@/app/lib/googleDrive';
 import { DRIVE_STATE_COOKIE, DRIVE_STATE_COOKIE_PATH } from '@/app/lib/oauth';
+import { ACCOUNT_HOME } from '@/app/lib/routes';
 
 export const runtime = 'nodejs';
 // Copying six full-resolution originals into Drive is the slow part.
@@ -20,7 +21,7 @@ export const maxDuration = 60;
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const back = (outcome: string, extra = '') =>
-    NextResponse.redirect(new URL(`/albums?drive=${outcome}${extra}`, origin));
+    NextResponse.redirect(new URL(`${ACCOUNT_HOME}?drive=${outcome}${extra}`, origin));
 
   const cookieStore = await cookies();
   const stored = cookieStore.get(DRIVE_STATE_COOKIE)?.value ?? '';

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { FileImage, FileArchive, FileText, HardDriveUpload, Loader2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { cx, focusRing } from './ui';
 
 type Format = 'jpg' | 'zip' | 'pdf';
 
@@ -68,9 +69,11 @@ export default function AlbumDownloads({
     }
   };
 
-  const buttonClass = `flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 font-sans font-bold text-black dark:text-white transition-colors hover:border-violet-500/40 hover:bg-violet-500/5 disabled:cursor-wait disabled:opacity-60 ${
-    compact ? 'text-[11px]' : 'text-xs'
-  }`;
+  const buttonClass = cx(
+    'flex min-h-11 items-center justify-center gap-2 border border-ink bg-paper px-3 font-sans font-bold uppercase tracking-[0.12em] text-ink transition-colors hover:bg-ink hover:text-paper disabled:cursor-wait disabled:opacity-60',
+    compact ? 'text-[10px]' : 'text-[11px]',
+    focusRing
+  );
 
   const icon = (format: Format, Idle: typeof FileImage) =>
     busy === format ? <Loader2 size={15} className="animate-spin" /> : <Idle size={15} strokeWidth={1.75} />;
@@ -99,7 +102,7 @@ export default function AlbumDownloads({
         </a>
       </div>
       {!compact && (
-        <p className="font-sans text-[11px] leading-snug text-black/50 dark:text-white/50">
+        <p className="font-sans text-[11px] leading-snug text-mute">
           Google Drive menyalin {imageCount} gambar asli ke folder baru di Drive Anda.
         </p>
       )}

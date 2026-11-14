@@ -10,4 +10,6 @@ export { TextField, TextAreaField, SelectField } from './Field';
 export { default as EmptyState } from './EmptyState';
 export { default as FilterTabs } from './FilterTabs';
 export type { FilterTab } from './FilterTabs';
+export { default as TabLinks } from './TabLinks';
+export type { TabLink } from './TabLinks';
 export { cx, focusRing } from './cx';

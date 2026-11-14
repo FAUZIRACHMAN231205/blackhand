@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
+import { LEGACY_REDIRECTS } from "./app/lib/routes";
 
 const nextConfig: NextConfig = {
+  // Feed, Collection, Dashboard, Album Saya, Pesanan Saya and Settings were
+  // merged into Karya and Akun; their old addresses keep working.
+  async redirects() {
+    return LEGACY_REDIRECTS.map((r) => ({ ...r, permanent: true }));
+  },
   async headers() {
     return [
       {

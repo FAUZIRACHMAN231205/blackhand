@@ -1,142 +1,173 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabaseClient';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '../component/Navbar';
 import AuthModal from '../component/AuthModal';
-import { ChevronLeft, Star, ImageOff, Tag, ChevronDown, Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import RatingStars from '../component/RatingStars';
-import { LoadingSpinner, SkeletonGrid } from '../component/LoadingStates';
-import type { Work } from '../types';
-import { WORK_CATEGORIES, isValidCategory, formatIdr } from '../lib/categories';
+import SiteFooter from '../component/SiteFooter';
+import { Button, CatalogCard, EmptyState, FilterTabs, PageHeader, Price, Tag, type FilterTab } from '../component/ui';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabaseClient';
+import { WORK_CATEGORIES, isValidCategory } from '../lib/categories';
 import { GALLERY_PAGE_SIZE, pageRange, splitPage } from '../lib/pagination';
+import { publicSaleStatus } from '../lib/sales';
+import type { Work } from '../types';
 
 const WORK_COLUMNS =
   'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale, sold_at';
 
-type RatingStats = Record<string, { average: number; count: number } | null>;
+/** "Tersedia": works that can be bought right now. */
+const AVAILABLE = 'available';
 
-/** One page of published works, newest first, optionally narrowed to a category. */
-async function loadWorksPage(category: string | null, page: number) {
+/** One filter row: everything, a category, or only what is for sale. */
+type Filter = string | null;
+
+const FILTERS: FilterTab<Filter>[] = [
+  { value: null, label: 'Semua' },
+  ...WORK_CATEGORIES.map((c) => ({ value: c, label: c })),
+  { value: AVAILABLE, label: 'Tersedia' },
+];
+
+/** Read the filter from the URL (?category=… or ?filter=available). */
+function filterFrom(params: URLSearchParams): Filter {
+  if (params.get('filter') === AVAILABLE) return AVAILABLE;
+  const category = params.get('category');
+  return isValidCategory(category) ? category : null;
+}
+
+function filterHref(filter: Filter): string {
+  if (filter === AVAILABLE) return `/gallery?filter=${AVAILABLE}`;
+  return filter ? `/gallery?category=${encodeURIComponent(filter)}` : '/gallery';
+}
+
+/** One page of published works, newest first, narrowed by the filter. */
+async function loadWorksPage(filter: Filter, page: number) {
   const [from, to] = pageRange(page, GALLERY_PAGE_SIZE);
   let query = supabase.from('works').select(WORK_COLUMNS).eq('is_published', true);
-  if (category) query = query.eq('category', category);
+  if (filter === AVAILABLE) {
+    query = query.eq('is_for_sale', true).is('sold_at', null).not('price_idr', 'is', null);
+  } else if (filter) {
+    query = query.eq('category', filter);
+  }
 
   const { data, error } = await query.order('created_at', { ascending: false }).range(from, to);
   if (error) {
     console.error('Error fetching works:', error);
-    return { items: [] as Work[], hasMore: false };
+    return { items: [] as Work[], hasMore: false, failed: true };
   }
-  return splitPage((data ?? []) as Work[], GALLERY_PAGE_SIZE);
+  return { ...splitPage((data ?? []) as Work[], GALLERY_PAGE_SIZE), failed: false };
 }
 
-/**
- * The featured showcase is its own small query: paging must not decide whether
- * the highlighted work happens to be on screen.
- */
-async function loadFeaturedWorks(): Promise<Work[]> {
-  const { data, error } = await supabase
-    .from('works')
-    .select(WORK_COLUMNS)
-    .eq('is_published', true)
-    .eq('is_featured', true)
-    .order('created_at', { ascending: false })
-    .limit(3);
-
-  if (error) {
-    console.error('Error fetching featured works:', error);
-    return [];
-  }
-  return (data ?? []) as Work[];
-}
-
-/** How many published works exist in total, for the stats strip. */
-async function loadPublishedCount(): Promise<number> {
+async function loadPublishedCount(): Promise<number | null> {
   const { count, error } = await supabase
     .from('works')
     .select('id', { count: 'exact', head: true })
     .eq('is_published', true);
-
   if (error) {
     console.error('Error counting works:', error);
-    return 0;
+    return null;
   }
-  return count ?? 0;
+  return count;
 }
 
-/** Ratings and comment counts for a page of cards, in one request. */
-async function loadRatingStats(ids: string[]): Promise<RatingStats> {
-  // Works with no ratings are absent from the response; seed them as null so
-  // they count as fetched and aren't asked for again on the next page.
-  const seeded: RatingStats = Object.fromEntries(ids.map((id) => [id, null]));
-  try {
-    const res = await fetch(`/api/works/ratings/summary?ids=${encodeURIComponent(ids.join(','))}`);
-    if (!res.ok) return seeded;
-    const { stats } = await res.json();
-    return { ...seeded, ...(stats ?? {}) };
-  } catch (err) {
-    console.error('Error fetching rating summary:', err);
-    return seeded;
-  }
+/** The works this visitor owns, in one request, so cards can say "Milik Anda". */
+function useOwnedWorkIds(signedIn: boolean) {
+  const [owned, setOwned] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!signedIn) return;
+    let cancelled = false;
+    fetch('/api/me/albums')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { workIds: string[] } | null) => {
+        if (!cancelled && data) setOwned(new Set(data.workIds));
+      })
+      .catch((err) => console.error('Error loading owned works:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
+  return signedIn ? owned : new Set<string>();
+}
+
+function WorkCard({ work, owned }: { work: Work; owned: boolean }) {
+  const status = publicSaleStatus(work);
+  const tags = owned ? (
+    <Tag>Milik Anda</Tag>
+  ) : status === 'sold' ? (
+    <Tag variant="solid">Terjual</Tag>
+  ) : work.is_featured ? (
+    <Tag>Pilihan</Tag>
+  ) : null;
+
+  const aside = owned ? (
+    'Milik Anda'
+  ) : status === 'sold' ? (
+    'Terjual'
+  ) : status === 'available' || status === 'reserved' ? (
+    <Price amount={work.price_idr ?? 0} size="sm" />
+  ) : null;
+
+  return (
+    <CatalogCard
+      href={`/gallery/${work.id}`}
+      imageUrl={work.featured_image_url}
+      title={work.title}
+      meta={work.category}
+      aside={aside}
+      tags={tags}
+    />
+  );
 }
 
 function GalleryContent() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  // The URL is the one source of truth for the category, so the navbar's
-  // dropdown links (/gallery?category=Paintings) work even when the gallery is
-  // already open, and a filtered view survives a refresh or a shared link.
-  const categoryParam = searchParams.get('category');
-  const selectedCategory = isValidCategory(categoryParam) ? categoryParam : null;
+  // The URL is the one source of truth for the filter, so menu links
+  // (/gallery?category=Paintings) work while the page is open, and a filtered
+  // view survives a refresh or a shared link.
+  const filter = filterFrom(searchParams);
+  const ownedIds = useOwnedWorkIds(Boolean(user));
+
   const [works, setWorks] = useState<Work[]>([]);
-  const [featuredWorks, setFeaturedWorks] = useState<Work[]>([]);
   const [publishedCount, setPublishedCount] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [loadingWorks, setLoadingWorks] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [ratingStats, setRatingStats] = useState<RatingStats>({});
+  const [failed, setFailed] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
 
-  // A new category starts again from an empty first page. Adjusted during
-  // render rather than in an effect, so the old category's cards never paint
-  // under the new heading.
-  const [shownCategory, setShownCategory] = useState(selectedCategory);
-  if (selectedCategory !== shownCategory) {
-    setShownCategory(selectedCategory);
+  // A new filter starts again from an empty first page. Adjusted during
+  // render, not in an effect, so the old filter's cards never paint under
+  // the new one.
+  const [shownFilter, setShownFilter] = useState(filter);
+  if (filter !== shownFilter) {
+    setShownFilter(filter);
     setWorks([]);
     setPage(0);
     setHasMore(false);
-    setLoadingWorks(true);
+    setLoading(true);
   }
-  const [authOpen, setAuthOpen] = useState(false);
-
-  const CATEGORIES = WORK_CATEGORIES;
 
   useEffect(() => {
-    // Runs for the first page and again for each "load more" or category change;
-    // `ignore` drops a page that arrives after the category moved on.
+    // `ignore` drops a page that arrives after the filter moved on.
     let ignore = false;
-    loadWorksPage(selectedCategory, page).then((result) => {
+    loadWorksPage(filter, page).then((result) => {
       if (ignore) return;
       setWorks((prev) => (page === 0 ? result.items : [...prev, ...result.items]));
       setHasMore(result.hasMore);
-      setLoadingWorks(false);
+      setFailed(result.failed);
+      setLoading(false);
       setLoadingMore(false);
     });
     return () => {
       ignore = true;
     };
-  }, [selectedCategory, page]);
+  }, [filter, page]);
 
   useEffect(() => {
     let ignore = false;
-    loadFeaturedWorks().then((list) => {
-      if (!ignore) setFeaturedWorks(list);
-    });
     loadPublishedCount().then((count) => {
       if (!ignore) setPublishedCount(count);
     });
@@ -145,25 +176,8 @@ function GalleryContent() {
     };
   }, []);
 
-  useEffect(() => {
-    // Only ask about cards we haven't asked about yet.
-    const missing = works.map((w) => w.id).filter((id) => !(id in ratingStats));
-    if (missing.length === 0) return;
-
-    let ignore = false;
-    loadRatingStats(missing).then((stats) => {
-      if (!ignore) setRatingStats((prev) => ({ ...prev, ...stats }));
-    });
-    return () => {
-      ignore = true;
-    };
-  }, [works, ratingStats]);
-
-  const showCategory = (category: string | null) => {
-    if (category === selectedCategory) return;
-    router.replace(category ? `/gallery?category=${encodeURIComponent(category)}` : '/gallery', {
-      scroll: false,
-    });
+  const showFilter = (next: Filter) => {
+    router.replace(filterHref(next), { scroll: false });
   };
 
   const loadMore = () => {
@@ -171,207 +185,85 @@ function GalleryContent() {
     setPage((prev) => prev + 1);
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+  const emptyText =
+    filter === AVAILABLE
+      ? 'Belum ada karya yang bisa dibeli saat ini. Lihat semua karya untuk menikmati arsipnya.'
+      : filter
+        ? `Belum ada karya di kategori ${filter}.`
+        : 'Karya yang dipublikasikan studio akan muncul di sini.';
 
   return (
     <>
       <Navbar onOpenModal={() => setAuthOpen(true)} />
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
-      <main className="min-h-[100dvh] bg-white dark:bg-slate-950 text-black dark:text-white pt-24 p-6 md:p-20 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto">
-          {/* Back to Dashboard Button */}
-          <button
-            onClick={() => router.push(user ? '/dashboard' : '/')}
-            className="flex items-center gap-2 py-2 mb-6 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors group"
-          >
-            <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="font-sans text-sm font-medium">{user ? 'Back to Dashboard' : 'Back to Home'}</span>
-          </button>
+      <main className="min-h-[100dvh] bg-paper px-4 pb-20 pt-20 text-ink sm:px-6 md:px-8 md:pt-28">
+        <div className="mx-auto grid max-w-7xl gap-8">
+          <PageHeader
+            eyebrow={publishedCount === null ? 'Arsip studio' : `Arsip studio · ${publishedCount} karya`}
+            title="Karya"
+            description="Terbaru di atas. Setiap karya dijual kepada satu pemilik saja."
+          />
 
-          {/* Header Section */}
-          <div className="mb-12">
-            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl italic font-medium mb-2">
-              Gallery
-            </h1>
-            <p className="font-sans text-black/60 dark:text-white/60 text-lg">
-              Explore my artistic portfolio and creative projects
-            </p>
-          </div>
+          <FilterTabs label="Saring karya" items={FILTERS} value={filter} onChange={showFilter} />
 
-          {/* Featured Showcase */}
-          {featuredWorks.length > 0 && (
-            <div className="mb-16">
-              <h2 className="font-serif text-2xl italic mb-6 text-black/80 dark:text-white/80">Featured</h2>
-              <div className="grid grid-cols-1 gap-6">
-                {featuredWorks.map((work) => (
-                  <Link key={work.id} href={`/gallery/${work.id}`} className="group">
-                    <div className="relative overflow-hidden rounded-2xl border border-black/5 dark:border-white/10">
-                      {work.featured_image_url && (
-                        <img
-                          src={work.featured_image_url}
-                          alt={work.title}
-                          loading="lazy"
-                          className="w-full h-96 object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-8">
-                        <div className="text-white">
-                          <span className="inline-block px-3 py-1 bg-amber-400 text-black font-sans text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
-                            <Star size={11} className="inline -mt-0.5 mr-1 fill-current" />Featured
-                          </span>
-                          <h3 className="font-serif text-2xl italic">{work.title}</h3>
-                          <p className="font-sans text-sm opacity-80 mt-1">{work.category}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Categories Filter */}
-          <div className="mb-10">
-            <h3 className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/60 dark:text-white/60 mb-4 px-1">
-              Filter by Category
-            </h3>
-            <div className="flex flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible hide-scrollbar pb-2 md:pb-0 gap-x-6 md:gap-x-8 px-1">
-              <button
-                onClick={() => showCategory(null)}
-                className={`relative py-2 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
-                  selectedCategory === null
-                    ? 'text-black dark:text-white'
-                    : 'text-black/60 dark:text-white/60 hover:text-black/70 dark:hover:text-white/70'
-                }`}
-              >
-                All
-                {selectedCategory === null && (
-                  <span className="absolute -bottom-0.5 left-0 right-0 h-[1.5px] bg-violet-500" />
-                )}
-              </button>
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => showCategory(cat)}
-                  className={`relative py-2 font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
-                    selectedCategory === cat
-                      ? 'text-black dark:text-white'
-                      : 'text-black/60 dark:text-white/60 hover:text-black/70 dark:hover:text-white/70'
-                  }`}
-                >
-                  {cat}
-                  {selectedCategory === cat && (
-                    <span className="absolute -bottom-0.5 left-0 right-0 h-[1.5px] bg-violet-500" />
-                  )}
-                </button>
+          {loading ? (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4" aria-busy="true" aria-label="Memuat karya">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="grid gap-2.5">
+                  <div className="aspect-square animate-pulse bg-sheet" />
+                  <div className="h-5 w-3/4 animate-pulse bg-sheet" />
+                </div>
               ))}
             </div>
-          </div>
-
-          {/* Works Grid */}
-          {loadingWorks ? (
-            <SkeletonGrid count={6} />
+          ) : failed && works.length === 0 ? (
+            <EmptyState
+              title="Karya gagal dimuat"
+              description="Periksa koneksi Anda, lalu muat ulang halaman."
+              action={
+                <Button variant="secondary" onClick={() => window.location.reload()}>
+                  Muat ulang
+                </Button>
+              }
+            />
           ) : works.length === 0 ? (
-            <div className="bg-black/[0.02] dark:bg-slate-900/40 border border-dashed border-black/10 dark:border-white/10 rounded-2xl p-12 text-center">
-              <div className="mb-4">
-                <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
-              </div>
-              <h2 className="font-serif text-2xl italic mb-2 text-black/90 dark:text-white/90">No Works Found</h2>
-              <p className="font-sans text-sm text-black/60 dark:text-white/60">
-                {selectedCategory
-                  ? `No artworks in ${selectedCategory} category yet`
-                  : 'No artworks published yet'}
-              </p>
-            </div>
+            <EmptyState
+              title="Belum ada karya"
+              description={emptyText}
+              action={
+                filter ? (
+                  <Button variant="secondary" onClick={() => showFilter(null)}>
+                    Lihat semua karya
+                  </Button>
+                ) : undefined
+              }
+            />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
               {works.map((work) => (
-                <Link key={work.id} href={`/gallery/${work.id}`} className="group">
-                  <div className="space-y-4">
-                    <div className="relative overflow-hidden rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 group-hover:border-violet-500/30 transition-colors">
-                      {work.featured_image_url ? (
-                        <img
-                          src={work.featured_image_url}
-                          alt={work.title}
-                          loading="lazy"
-                          className="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full aspect-square flex items-center justify-center bg-black/10 dark:bg-white/10">
-                          <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
-                        </div>
-                      )}
-                      {work.sold_at ? (
-                        <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 font-sans text-[10px] font-black uppercase tracking-wider text-black backdrop-blur-md">
-                          Terjual
-                        </span>
-                      ) : (
-                        work.is_for_sale &&
-                        work.price_idr != null && (
-                          <span className="absolute top-3 left-3 flex items-center gap-1 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white backdrop-blur-md">
-                            <Tag size={10} strokeWidth={2} />
-                            {formatIdr(work.price_idr)}
-                          </span>
-                        )
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-serif text-lg italic line-clamp-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                        {work.title}
-                      </h3>
-                      <div className="flex justify-between items-center mt-1.5">
-                        <p className="font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50">{work.category}</p>
-                        <RatingStars workId={work.id} readOnly showDetails={false} stats={ratingStats[work.id] ?? null} />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+                <WorkCard key={work.id} work={work} owned={ownedIds.has(work.id)} />
               ))}
             </div>
           )}
 
-          {hasMore && !loadingWorks && (
-            <div className="flex justify-center pt-10">
-              <button
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="flex min-h-[48px] items-center gap-2 rounded-2xl border border-black/10 bg-black/[0.03] px-8 font-sans text-sm font-bold text-black transition-colors hover:bg-black/5 disabled:cursor-wait disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/10"
-              >
-                {loadingMore ? <Loader2 size={16} className="animate-spin" /> : <ChevronDown size={16} />}
-                {loadingMore ? 'Memuat...' : 'Muat Lebih Banyak'}
-              </button>
+          {hasMore && !loading && (
+            <div className="flex justify-center pt-4">
+              <Button variant="secondary" onClick={loadMore} loading={loadingMore}>
+                Muat lebih banyak
+              </Button>
             </div>
           )}
-
-          {/* Stats */}
-          <div className="mt-10 sm:mt-16 pt-6 sm:pt-8 border-t border-black/10 dark:border-white/10">
-            <div className="grid grid-cols-3 gap-3 sm:gap-6">
-              <div>
-                <p className="font-serif text-2xl sm:text-3xl italic text-black dark:text-white">{publishedCount ?? works.length}</p>
-                <p className="font-sans text-[10px] sm:text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-0.5 sm:mt-1">Total Works</p>
-              </div>
-              <div>
-                <p className="font-serif text-2xl sm:text-3xl italic text-black dark:text-white">{CATEGORIES.length}</p>
-                <p className="font-sans text-[10px] sm:text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-0.5 sm:mt-1">Categories</p>
-              </div>
-              <div>
-                <p className="font-serif text-2xl sm:text-3xl italic text-black dark:text-white">{featuredWorks.length}</p>
-                <p className="font-sans text-[10px] sm:text-xs uppercase tracking-wider text-black/50 dark:text-white/50 mt-0.5 sm:mt-1">Featured Works</p>
-              </div>
-            </div>
-          </div>
         </div>
       </main>
+
+      <SiteFooter />
     </>
   );
 }
 
-export default function Gallery() {
+export default function GalleryPage() {
   return (
-    <Suspense fallback={<LoadingSpinner />}>
+    <Suspense fallback={<main className="min-h-[100dvh] bg-paper" />}>
       <GalleryContent />
     </Suspense>
   );

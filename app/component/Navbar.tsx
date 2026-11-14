@@ -1,17 +1,50 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
-import { User, LogOut, Settings, Moon, Sun, Menu, X, Library, Package, ChevronDown, LayoutDashboard } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { ChevronDown, Menu, Moon, Sun, User as UserIcon, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { isAdmin } from '../lib/adminUtils';
 import { useTheme } from '../context/ThemeContext';
 import { WORK_CATEGORIES } from '../lib/categories';
+import { ACCOUNT_TABS, MAIN_NAV, isActivePath } from '../lib/routes';
+import { cx, focusRing } from './ui';
+import type { User } from '../types';
 
 interface NavbarProps {
   onOpenModal: () => void;
   announcementBar?: boolean;
+}
+
+const ICON_BUTTON = cx(
+  'flex h-11 w-11 items-center justify-center text-ink transition-colors hover:text-mute',
+  focusRing
+);
+
+function Avatar({ user, size = 'h-7 w-7' }: { user: User; size?: string }) {
+  // Avatars are the one round thing on the site (docs/DESIGN.md).
+  return user.avatar_url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={user.avatar_url}
+      alt=""
+      referrerPolicy="no-referrer"
+      className={cx(size, 'shrink-0 rounded-full border border-line object-cover')}
+    />
+  ) : (
+    <span
+      className={cx(size, 'flex shrink-0 items-center justify-center rounded-full bg-ink font-serif text-xs text-paper')}
+      aria-hidden
+    >
+      {(user.full_name || user.email || 'B').charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+/** Account pages, plus Admin for admins. */
+function accountLinks(user: User) {
+  return isAdmin(user) ? [...ACCOUNT_TABS, { href: '/admin', label: 'Admin' }] : ACCOUNT_TABS;
 }
 
 export default function Navbar({ onOpenModal, announcementBar = false }: NavbarProps) {
@@ -20,11 +53,12 @@ export default function Navbar({ onOpenModal, announcementBar = false }: NavbarP
   const pathname = usePathname();
   const { isDark, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
 
-  // Solid, blurred navbar background once the page scrolls
+  // Transparent over the home page's hero; a solid bar with a rule once the
+  // page moves.
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
@@ -32,386 +66,294 @@ export default function Navbar({ onOpenModal, announcementBar = false }: NavbarP
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const handleLogout = async () => {
-    setMenuOpen(false);
-    await logout();
-    router.push('/');
-  };
-
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
     setMenuOpen(false);
-    setAccountMenuOpen(false);
+    setAccountOpen(false);
   }
 
   useEffect(() => {
-    if (!accountMenuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
-        setAccountMenuOpen(false);
-      }
+    if (!accountOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountOpen(false);
     };
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAccountMenuOpen(false);
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAccountOpen(false);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEsc);
+    document.addEventListener('mousedown', onClickOutside);
+    document.addEventListener('keydown', onEsc);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEsc);
+      document.removeEventListener('mousedown', onClickOutside);
+      document.removeEventListener('keydown', onEsc);
     };
-  }, [accountMenuOpen]);
+  }, [accountOpen]);
 
-  // Lock body scroll
-  useEffect(() => {
-    if (menuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [menuOpen]);
-
-  // Close on Escape key
+  // The full-screen menu owns the screen while open: no page scroll behind it,
+  // Escape closes it.
   useEffect(() => {
     if (!menuOpen) return;
-    const handleEsc = (e: KeyboardEvent) => {
+    document.body.style.overflow = 'hidden';
+    const onEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMenuOpen(false);
     };
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onEsc);
+    };
   }, [menuOpen]);
 
-  const navLinks = [
-    { href: '/works', label: 'Feed' },
-    { href: '/gallery', label: 'Collection' },
-    { href: '/shop', label: 'Shop' },
-    { href: '/manifesto', label: 'Manifesto' },
-  ];
+  const handleLogout = async () => {
+    setMenuOpen(false);
+    setAccountOpen(false);
+    await logout();
+    router.push('/');
+  };
 
-  const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
+  const signIn = () => {
+    setMenuOpen(false);
+    onOpenModal();
+  };
+
+  const themeLabel = isDark ? 'Mode terang' : 'Mode gelap';
 
   return (
     <>
       <nav
-        className={`fixed w-full z-[100] [transform:translateZ(0)] px-4 sm:px-6 md:px-8 pb-3.5 md:pb-5 pt-[calc(0.875rem+env(safe-area-inset-top))] md:pt-[calc(1.25rem+env(safe-area-inset-top))] flex items-center justify-between transition-[background-color,border-color,box-shadow] duration-300 ease-out ${
-          announcementBar ? 'top-[calc(2rem+env(safe-area-inset-top))]' : 'top-0'
-        } ${
-          scrolled && !menuOpen
-            ? 'bg-white dark:bg-slate-950 border-b border-black/5 dark:border-white/10 shadow-[0_2px_10px_0_rgba(0,0,0,0.05)]'
-            : 'bg-transparent border-b border-transparent'
-        }`}
+        aria-label="Utama"
+        className={cx(
+          'fixed z-[100] flex w-full items-center justify-between border-b px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-colors duration-200 [transform:translateZ(0)] sm:px-6 md:px-8',
+          announcementBar ? 'top-[calc(2rem+env(safe-area-inset-top))]' : 'top-0',
+          scrolled && !menuOpen ? 'border-line bg-paper' : 'border-transparent bg-transparent'
+        )}
       >
-        {/* Mobile Hamburger (Left on mobile, hidden on desktop) */}
-        <div className="flex items-center md:hidden w-1/3">
-          <button
-            onClick={() => setMenuOpen(true)}
-            className="-ml-2 flex h-11 w-11 items-center justify-start text-black dark:text-white hover:opacity-60 transition-colors"
-            aria-label="Open menu"
-          >
-            <Menu size={24} strokeWidth={1.5} />
+        {/* Phones: menu button left, logo centred, account right. */}
+        <div className="flex w-1/3 items-center md:hidden">
+          <button type="button" onClick={() => setMenuOpen(true)} className={cx(ICON_BUTTON, '-ml-3')} aria-label="Buka menu">
+            <Menu size={22} strokeWidth={1.5} aria-hidden />
           </button>
         </div>
 
-        {/* Logo (Center on mobile, Left on desktop) */}
-        <div className="flex justify-center md:justify-start w-1/3 md:w-auto z-[202]">
-          <Link href="/" className="font-serif text-3xl font-medium tracking-tighter italic text-black dark:text-white">
-            Blackhand<span className="text-zinc-500 dark:text-zinc-600 italic">.</span>
+        <div className="flex w-1/3 justify-center md:w-auto md:justify-start">
+          <Link href="/" className={cx('font-serif text-3xl font-medium italic tracking-tighter text-ink', focusRing)}>
+            Blackhand<span className="text-mute">.</span>
           </Link>
         </div>
 
-        {/* Menu Navigasi Desktop dengan Poppins */}
-        <div className="hidden md:flex items-center space-x-8 lg:space-x-12 font-sans text-xs font-black tracking-[0.2em] uppercase text-black dark:text-white">
-          <Link
-            href="/works"
-            className={`group relative py-2 transition-colors ${
-              isActive('/works') ? 'text-violet-600 dark:text-violet-400' : 'hover:text-black/60 dark:hover:text-white/60'
-            }`}
-          >
-            Feed
-            <span
-              className={`absolute -bottom-0.5 left-0 h-[1.5px] bg-current transition-all duration-300 ${
-                isActive('/works') ? 'w-full' : 'w-0 group-hover:w-full'
-              }`}
-            />
-          </Link>
+        <ul className="hidden items-center gap-10 md:flex lg:gap-12">
+          {MAIN_NAV.map((link) => {
+            const active = isActivePath(pathname, link.href);
+            return (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={cx(
+                    'relative flex min-h-11 items-center font-sans text-[11px] font-bold uppercase tracking-[0.2em] transition-colors',
+                    active ? 'text-accent-text' : 'text-ink hover:text-mute',
+                    focusRing
+                  )}
+                >
+                  {link.label}
+                  {active && <span className="absolute inset-x-0 bottom-2 h-px bg-current" aria-hidden />}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
 
-          <div className="group/collection relative">
-            <Link
-              href="/gallery"
-              className={`group relative flex items-center gap-1 py-2 transition-colors ${
-                isActive('/gallery') ? 'text-violet-600 dark:text-violet-400' : 'hover:text-black/60 dark:hover:text-white/60'
-              }`}
-            >
-              Collection
-              <ChevronDown size={12} strokeWidth={2.5} className="transition-transform duration-300 group-hover/collection:rotate-180 group-focus-within/collection:rotate-180" />
-              <span
-                className={`absolute -bottom-0.5 left-0 h-[1.5px] bg-current transition-all duration-300 ${
-                  isActive('/gallery') ? 'w-full' : 'w-0 group-hover:w-full'
-                }`}
-              />
-            </Link>
-            <div className="absolute left-0 top-full grid grid-rows-[0fr] overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover/collection:grid-rows-[1fr] group-hover/collection:opacity-100 group-focus-within/collection:grid-rows-[1fr] group-focus-within/collection:opacity-100">
-              <div className="min-h-0">
-                <div className="mt-2 w-48 space-y-1 p-2 normal-case tracking-normal">
-                  <Link href="/gallery" className="block px-1 py-1.5 text-xs font-bold text-black/70 transition-colors hover:text-black dark:text-white/70 dark:hover:text-white">
-                    Semua Karya
-                  </Link>
-                  {WORK_CATEGORIES.map((cat) => (
-                    <Link
-                      key={cat}
-                      href={`/gallery?category=${encodeURIComponent(cat)}`}
-                      className="block px-1 py-1.5 text-xs font-bold text-black/70 transition-colors hover:text-black dark:text-white/70 dark:hover:text-white"
-                    >
-                      {cat}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="group/shop relative">
-            <Link
-              href="/shop"
-              className={`group relative flex items-center gap-1 py-2 transition-colors ${
-                isActive('/shop') ? 'text-violet-600 dark:text-violet-400' : 'hover:text-black/60 dark:hover:text-white/60'
-              }`}
-            >
-              Shop
-              <ChevronDown size={12} strokeWidth={2.5} className="transition-transform duration-300 group-hover/shop:rotate-180 group-focus-within/shop:rotate-180" />
-              <span
-                className={`absolute -bottom-0.5 left-0 h-[1.5px] bg-current transition-all duration-300 ${
-                  isActive('/shop') ? 'w-full' : 'w-0 group-hover:w-full'
-                }`}
-              />
-            </Link>
-            <div className="absolute left-0 top-full grid grid-rows-[0fr] overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover/shop:grid-rows-[1fr] group-hover/shop:opacity-100 group-focus-within/shop:grid-rows-[1fr] group-focus-within/shop:opacity-100">
-              <div className="min-h-0">
-                <div className="mt-2 w-44 space-y-1 p-2 normal-case tracking-normal">
-                  <Link href="/shop" className="block px-1 py-1.5 text-xs font-bold text-black/70 transition-colors hover:text-black dark:text-white/70 dark:hover:text-white">
-                    Semua
-                  </Link>
-                  <Link href="/shop?filter=new" className="block px-1 py-1.5 text-xs font-bold text-black/70 transition-colors hover:text-black dark:text-white/70 dark:hover:text-white">
-                    Baru
-                  </Link>
-                  <Link href="/shop?filter=sale" className="block px-1 py-1.5 text-xs font-bold text-black/70 transition-colors hover:text-black dark:text-white/70 dark:hover:text-white">
-                    Diskon
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <Link
-            href="/manifesto"
-            className={`group relative py-2 transition-colors ${
-              isActive('/manifesto') ? 'text-violet-600 dark:text-violet-400' : 'hover:text-black/60 dark:hover:text-white/60'
-            }`}
-          >
-            Manifesto
-            <span
-              className={`absolute -bottom-0.5 left-0 h-[1.5px] bg-current transition-all duration-300 ${
-                isActive('/manifesto') ? 'w-full' : 'w-0 group-hover:w-full'
-              }`}
-            />
-          </Link>
-        </div>
-
-        {/* Ikon Desktop & Kanan Mobile */}
-        <div className="flex items-center justify-end w-1/3 md:w-auto space-x-4 md:space-x-6 z-[202]">
-          {/* Dark Mode Toggle (desktop) */}
-          <button
-            onClick={toggleTheme}
-            className="hidden md:flex h-10 w-10 -m-2 items-center justify-center text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors"
-            aria-label="Toggle dark mode"
-          >
-            {isDark ? <Sun size={18} strokeWidth={1.5} /> : <Moon size={18} strokeWidth={1.5} />}
+        <div className="flex w-1/3 items-center justify-end gap-1 md:w-auto md:gap-3">
+          <button type="button" onClick={toggleTheme} className={cx(ICON_BUTTON, 'hidden md:flex')} aria-label={themeLabel}>
+            {isDark ? <Sun size={18} strokeWidth={1.5} aria-hidden /> : <Moon size={18} strokeWidth={1.5} aria-hidden />}
           </button>
-          
-          {/* Desktop user controls */}
+
           {user ? (
-            <div ref={accountMenuRef} className="relative">
+            <div ref={accountRef} className="relative">
               <button
-                onClick={() => setAccountMenuOpen((v) => !v)}
-                aria-expanded={accountMenuOpen}
-                className="flex items-center gap-2 py-2 max-w-[190px] text-black dark:text-white"
+                type="button"
+                onClick={() => setAccountOpen((v) => !v)}
+                aria-expanded={accountOpen}
+                aria-haspopup="menu"
+                aria-label="Menu akun"
+                className={cx('-mr-2 flex min-h-11 items-center gap-2 px-2 text-ink md:mr-0', focusRing)}
               >
-                {user.avatar_url ? (
-                  <img
-                    src={user.avatar_url}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="h-7 w-7 shrink-0 rounded-full border border-black/10 object-cover dark:border-white/15"
-                  />
-                ) : (
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-900 font-serif text-xs text-white dark:bg-zinc-100 dark:text-black">
-                    {(user.full_name || user.email || 'B').charAt(0).toUpperCase()}
-                  </span>
-                )}
-                {/* On tablets the row is tight: avatar only, name from lg up. */}
-                <span className="hidden truncate font-sans text-xs lg:block">
+                <Avatar user={user} />
+                <span className="hidden max-w-[160px] truncate font-sans text-xs lg:block">
                   {user.full_name || user.email}
                 </span>
                 <ChevronDown
                   size={14}
                   strokeWidth={2}
-                  className={`hidden md:block shrink-0 transition-transform duration-300 ${accountMenuOpen ? 'rotate-180' : ''}`}
+                  aria-hidden
+                  className={cx('hidden shrink-0 transition-transform md:block', accountOpen && 'rotate-180')}
                 />
               </button>
 
-              <div
-                className={`absolute right-0 top-full grid overflow-hidden transition-all duration-300 ease-out ${
-                  accountMenuOpen ? 'visible grid-rows-[1fr] opacity-100' : 'invisible grid-rows-[0fr] opacity-0'
-                }`}
-              >
-                <div className="min-h-0">
-                  <div className="mt-2 w-56 space-y-0.5 rounded-2xl border border-black/5 bg-white/95 p-2 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-slate-950/95">
-                    <Link
-                      href="/dashboard"
-                      onClick={() => setAccountMenuOpen(false)}
-                      className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-sans text-xs font-bold transition-colors ${
-                        pathname === '/dashboard'
-                          ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                          : 'text-black/80 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <LayoutDashboard size={14} strokeWidth={2} />
-                      Dashboard
-                    </Link>
-                    <Link
-                      href="/albums"
-                      onClick={() => setAccountMenuOpen(false)}
-                      className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-sans text-xs font-bold transition-colors ${
-                        pathname === '/albums'
-                          ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                          : 'text-black/80 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <Library size={14} strokeWidth={2} />
-                      Album Saya
-                    </Link>
-                    <Link
-                      href="/orders"
-                      onClick={() => setAccountMenuOpen(false)}
-                      className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-sans text-xs font-bold transition-colors ${
-                        pathname === '/orders'
-                          ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                          : 'text-black/80 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <Package size={14} strokeWidth={2} />
-                      Pesanan Saya
-                    </Link>
-                    {isAdmin(user) && (
-                      <Link
-                        href="/admin"
-                        onClick={() => setAccountMenuOpen(false)}
-                        className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-sans text-xs font-bold transition-colors ${
-                          pathname?.startsWith('/admin')
-                            ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                            : 'text-black/80 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/5'
-                        }`}
-                      >
-                        <Settings size={14} strokeWidth={2} />
-                        Admin
-                      </Link>
-                    )}
-                    <div className="my-1 border-t border-black/5 dark:border-white/10" />
+              {accountOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 border border-ink bg-paper">
+                  <ul className="py-1">
+                    {accountLinks(user).map((link) => (
+                      <li key={link.href}>
+                        <Link
+                          href={link.href}
+                          onClick={() => setAccountOpen(false)}
+                          aria-current={pathname === link.href ? 'page' : undefined}
+                          className={cx(
+                            'flex min-h-11 items-center px-4 font-sans text-[11px] font-bold uppercase tracking-[0.16em] transition-colors hover:bg-sheet',
+                            pathname === link.href ? 'text-accent-text' : 'text-ink',
+                            focusRing
+                          )}
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="border-t border-line py-1">
                     <button
+                      type="button"
                       onClick={handleLogout}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 font-sans text-xs font-bold text-rose-600 transition-colors hover:bg-rose-500/10 dark:text-rose-400"
+                      className={cx(
+                        'flex min-h-11 w-full items-center px-4 font-sans text-[11px] font-bold uppercase tracking-[0.16em] text-mute transition-colors hover:bg-sheet hover:text-ink',
+                        focusRing
+                      )}
                     >
-                      <LogOut size={14} strokeWidth={2} />
-                      Logout
+                      Keluar
                     </button>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           ) : (
-            <button 
-              onClick={onOpenModal}
-              className="flex h-10 w-10 -m-2 items-center justify-center text-black dark:text-white hover:text-black/60 dark:hover:text-white/60 transition-colors"
-              aria-label="Login"
-            >
-              <User size={18} strokeWidth={1.5} />
-            </button>
+            <>
+              <button type="button" onClick={onOpenModal} className={cx(ICON_BUTTON, '-mr-3 md:hidden')} aria-label="Masuk">
+                <UserIcon size={20} strokeWidth={1.5} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={onOpenModal}
+                className={cx(
+                  'hidden min-h-11 items-center border border-ink px-4 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-ink transition-colors hover:bg-ink hover:text-paper md:flex',
+                  focusRing
+                )}
+              >
+                Masuk
+              </button>
+            </>
           )}
         </div>
       </nav>
 
-      {/* ─── Mobile Slide-Over Menu (Dropdead Style) ─────────────────────────────────── */}
+      {/* Phones: a full-screen menu. `inert` while closed — it is only faded
+          out, and its links must not take keyboard focus behind the page. */}
       <div
-        className={`fixed inset-0 z-[200] bg-white dark:bg-slate-950 transition-all duration-500 ease-[cubic-bezier(0.76,0,0.24,1)] md:hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] px-6 ${
-          menuOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : '-translate-x-12 opacity-0 pointer-events-none'
-        }`}
-        // `inert` while closed: the panel is only faded out, so without it its
-        // links would still take keyboard focus behind the page.
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
         inert={!menuOpen}
+        className={cx(
+          'fixed inset-0 z-[200] flex flex-col overflow-y-auto bg-paper px-4 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-ink transition-[opacity,transform] duration-300 ease-out md:hidden',
+          menuOpen ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
+        )}
       >
-        <div className="flex items-center justify-between py-4">
-          <button
-            onClick={() => setMenuOpen(false)}
-            className="-ml-2 w-11 h-11 flex items-center justify-start text-black dark:text-white hover:opacity-60 transition-colors"
-            aria-label="Close menu"
-          >
-            <X size={28} strokeWidth={1.5} />
+        <div className="flex items-center justify-between border-b border-line py-2">
+          <button type="button" onClick={() => setMenuOpen(false)} className={cx(ICON_BUTTON, '-ml-3')} aria-label="Tutup menu">
+            <X size={24} strokeWidth={1.5} aria-hidden />
           </button>
-          <div className="flex space-x-4">
-             <button
-                onClick={toggleTheme}
-                className="flex h-11 w-11 items-center justify-end text-black dark:text-white hover:opacity-60 transition-colors"
-                aria-label="Toggle dark mode"
-              >
-                {isDark ? <Sun size={20} strokeWidth={1.5} /> : <Moon size={20} strokeWidth={1.5} />}
-             </button>
-          </div>
+          <span className="font-serif text-3xl font-medium italic tracking-tighter">
+            Blackhand<span className="text-mute">.</span>
+          </span>
+          <button type="button" onClick={toggleTheme} className={cx(ICON_BUTTON, '-mr-3')} aria-label={themeLabel}>
+            {isDark ? <Sun size={20} strokeWidth={1.5} aria-hidden /> : <Moon size={20} strokeWidth={1.5} aria-hidden />}
+          </button>
         </div>
 
-        <div className="flex-1 flex flex-col justify-center space-y-4 py-8">
-          {navLinks.map((link, i) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMenuOpen(false)}
-              className="group w-fit overflow-hidden"
-            >
-              <span 
-                className={`block font-sans text-5xl sm:text-6xl font-black uppercase tracking-tighter text-black dark:text-white transition-all duration-500 ease-[cubic-bezier(0.76,0,0.24,1)] hover:italic hover:text-transparent hover:[-webkit-text-stroke:2px_black] dark:hover:[-webkit-text-stroke:2px_white] ${
-                  menuOpen ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-                }`}
-                style={{ transitionDelay: `${menuOpen ? i * 50 : 0}ms` }}
-              >
-                {link.label}
-              </span>
-            </Link>
-          ))}
-        </div>
-
-        <div className={`mt-auto flex flex-col space-y-6 pt-6 border-t border-black/10 dark:border-white/10 pb-6 transition-all duration-700 delay-300 ${
-          menuOpen ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-        }`}>
-          <div>
-            <p className="font-sans text-[10px] font-black tracking-[0.2em] uppercase text-black/50 dark:text-white/50 mb-3">
-              Categories
-            </p>
-            <div className="flex flex-wrap gap-3">
-              {WORK_CATEGORIES.map((cat) => (
+        <ul className="grid gap-1 py-8">
+          {MAIN_NAV.map((link) => {
+            const active = isActivePath(pathname, link.href);
+            return (
+              <li key={link.href}>
                 <Link
-                  key={cat}
+                  href={link.href}
+                  onClick={() => setMenuOpen(false)}
+                  aria-current={active ? 'page' : undefined}
+                  className={cx(
+                    'block py-1 font-sans text-5xl font-bold uppercase tracking-[-0.03em]',
+                    active ? 'text-accent-text' : 'text-ink',
+                    focusRing
+                  )}
+                >
+                  {link.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="border-t border-line py-6">
+          <p className="mb-3 font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-mute">Kategori karya</p>
+          <ul className="flex flex-wrap gap-x-5">
+            {WORK_CATEGORIES.map((cat) => (
+              <li key={cat}>
+                <Link
                   href={`/gallery?category=${encodeURIComponent(cat)}`}
                   onClick={() => setMenuOpen(false)}
-                  className="font-sans text-sm font-bold uppercase tracking-wider text-black dark:text-white hover:italic transition-all"
+                  className={cx('flex min-h-11 items-center font-sans text-sm font-semibold uppercase tracking-[0.08em]', focusRing)}
                 >
                   {cat}
                 </Link>
-              ))}
-            </div>
-          </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mt-auto border-t border-line py-6">
+          {user ? (
+            <>
+              <div className="mb-3 flex items-center gap-3">
+                <Avatar user={user} size="h-9 w-9" />
+                <span className="min-w-0 truncate font-sans text-sm">{user.full_name || user.email}</span>
+              </div>
+              <ul className="flex flex-wrap gap-x-5">
+                {accountLinks(user).map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      onClick={() => setMenuOpen(false)}
+                      className={cx(
+                        'flex min-h-11 items-center font-sans text-[11px] font-bold uppercase tracking-[0.16em]',
+                        pathname === link.href ? 'text-accent-text' : 'text-ink',
+                        focusRing
+                      )}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className={cx('flex min-h-11 items-center font-sans text-[11px] font-bold uppercase tracking-[0.16em] text-mute', focusRing)}
+                  >
+                    Keluar
+                  </button>
+                </li>
+              </ul>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={signIn}
+              className={cx(
+                'flex min-h-12 w-full items-center justify-center border border-ink bg-ink font-sans text-[11px] font-bold uppercase tracking-[0.18em] text-paper',
+                focusRing
+              )}
+            >
+              Masuk
+            </button>
+          )}
         </div>
       </div>
     </>

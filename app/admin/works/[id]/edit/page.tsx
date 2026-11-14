@@ -62,7 +62,7 @@ export default function EditWork() {
       if (!user) {
         router.push('/');
       } else if (!isAdmin(user)) {
-        router.push('/dashboard');
+        router.push('/account');
       }
     }
   }, [user, loading, router]);

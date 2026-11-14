@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { OAUTH_STATE_COOKIE } from '@/app/lib/oauth';
 import { upsertUser } from '@/app/lib/users';
 import { setSessionCookie } from '@/app/lib/session';
+import { ACCOUNT_HOME } from '@/app/lib/routes';
 
 interface GoogleTokenResponse {
   access_token: string;
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
 
     await setSessionCookie(user);
 
-    return NextResponse.redirect(new URL('/dashboard', origin));
+    return NextResponse.redirect(new URL(ACCOUNT_HOME, origin));
   } catch (error) {
     console.error('Google OAuth callback error:', error);
     return NextResponse.redirect(new URL('/?authError=google_login_failed', origin));

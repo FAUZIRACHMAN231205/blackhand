@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Navbar from '../component/Navbar';
 import AuthModal from '../component/AuthModal';
+import SiteFooter from '../component/SiteFooter';
 
 export default function Manifesto() {
   const [authOpen, setAuthOpen] = useState(false);
@@ -61,7 +62,7 @@ export default function Manifesto() {
 
           <div className="mt-16 flex flex-wrap gap-3">
             <Link
-              href="/works"
+              href="/gallery"
               className="rounded-xl bg-black px-7 py-4 font-sans text-[11px] font-black uppercase tracking-[0.2em] text-white transition-all hover:opacity-90 dark:bg-white dark:text-black"
             >
               Jelajahi Karya
@@ -75,6 +76,8 @@ export default function Manifesto() {
           </div>
         </div>
       </main>
+
+      <SiteFooter />
     </>
   );
 }
