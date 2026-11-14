@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   if (ratingsRes.error || commentsRes.error) {
     console.error('Error fetching rating summary:', ratingsRes.error || commentsRes.error);
-    return NextResponse.json({ error: 'Failed to fetch rating summary' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memuat rating.' }, { status: 500 });
   }
 
   const agg: Record<string, { sum: number; count: number; comments: number }> = {};

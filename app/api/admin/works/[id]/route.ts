@@ -11,8 +11,8 @@ async function assertOwnedWork(workId: string, userId: string) {
     .eq('id', workId)
     .maybeSingle();
 
-  if (!data) return { ok: false as const, status: 404, message: 'Work not found' };
-  if (data.created_by !== userId) return { ok: false as const, status: 403, message: 'Forbidden' };
+  if (!data) return { ok: false as const, status: 404, message: 'Karya tidak ditemukan.' };
+  if (data.created_by !== userId) return { ok: false as const, status: 403, message: 'Anda tidak punya akses untuk ini.' };
   return { ok: true as const };
 }
 
@@ -28,10 +28,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .single();
 
   if (workError || !work) {
-    return NextResponse.json({ error: 'Work not found' }, { status: 404 });
+    return NextResponse.json({ error: 'Karya tidak ditemukan.' }, { status: 404 });
   }
   if (work.created_by !== auth.user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Anda tidak punya akses untuk ini.' }, { status: 403 });
   }
 
   const { data: images } = await supabaseAdmin
@@ -58,11 +58,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { title, description, category, is_published, price_idr, is_for_sale } = body;
 
     if (title !== undefined && !String(title).trim()) {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Judul wajib diisi.' }, { status: 400 });
     }
     if (category !== undefined && !isValidCategory(category)) {
       return NextResponse.json(
-        { error: `Category must be one of: ${WORK_CATEGORIES.join(', ')}` },
+        { error: `Kategori harus salah satu dari: ${WORK_CATEGORIES.join(', ')}` },
         { status: 400 }
       );
     }
@@ -108,14 +108,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (error) {
       console.error('Error updating work:', error);
-      return NextResponse.json({ error: 'Failed to update work' }, { status: 500 });
+      return NextResponse.json({ error: 'Karya gagal diperbarui.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     console.error('Update work error:', error);
-    const errMsg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMsg || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan. Coba lagi.' }, { status: 500 });
   }
 }
 
@@ -139,7 +138,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   if ((orderCount ?? 0) > 0) {
     return NextResponse.json(
-      { error: 'This work has orders and cannot be deleted. Unpublish it instead.' },
+      { error: 'Karya ini punya pesanan sehingga tidak bisa dihapus. Sembunyikan saja.' },
       { status: 409 }
     );
   }
@@ -154,7 +153,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   if (error) {
     console.error('Error deleting work:', error);
-    return NextResponse.json({ error: 'Failed to delete work' }, { status: 500 });
+    return NextResponse.json({ error: 'Karya gagal dihapus.' }, { status: 500 });
   }
 
   await removeStoredImages((images ?? []).map((img) => img.image_url));

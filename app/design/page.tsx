@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Clock, Check } from 'lucide-react';
 import { Button, CatalogCard, EmptyState, Notice, PageHeader, Price, TabLinks, Tag } from '../component/ui';
-import { DemoFields, DemoFilterTabs, DemoImageViewer, DemoQuantity, ThemeSwitch } from './Demos';
+import { DemoFields, DemoFilterTabs, DemoImageViewer, DemoQuantity, DemoToasts, ThemeSwitch } from './Demos';
 
 export const metadata: Metadata = {
-  title: 'UI Kit · Blackhand',
+  title: 'UI Kit',
   robots: { index: false, follow: false },
 };
 
@@ -133,6 +133,10 @@ export default function DesignPage() {
             </Notice>
             <Notice tone="error">Komentar gagal dikirim. Periksa koneksi Anda lalu coba lagi.</Notice>
           </div>
+        </Section>
+
+        <Section title="Notifikasi">
+          <DemoToasts />
         </Section>
 
         <Section title="Jumlah">

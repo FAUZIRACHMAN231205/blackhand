@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import SupportModal from '../../component/SupportModal';
 import { Button, TextField } from '../../component/ui';
 import { useToast } from '../../context/ToastContext';
+import { SUPPORT_EMAIL } from '../../lib/contact';
 import { useAccount } from '../AccountContext';
 
 const NAME_MAX = 80;
@@ -47,7 +47,6 @@ export default function ProfileTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [supportOpen, setSupportOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   const trimmed = fullName.trim();
@@ -156,17 +155,22 @@ export default function ProfileTab() {
       </Section>
 
       <Section title="Bantuan">
+        <p className="font-sans text-sm text-mute">
+          Ada masalah dengan pesanan, unduhan, atau akun? Kirim email ke{' '}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold text-ink underline underline-offset-4">
+            {SUPPORT_EMAIL}
+          </a>
+          , sertakan ID pengguna di atas.
+        </p>
         <div className="flex flex-wrap gap-3">
-          <Button variant="secondary" onClick={() => setSupportOpen(true)}>
-            Hubungi dukungan
+          <Button variant="secondary" href={`mailto:${SUPPORT_EMAIL}`}>
+            Kirim email
           </Button>
           <Button variant="ghost" onClick={signOut} loading={signingOut}>
             Keluar
           </Button>
         </div>
       </Section>
-
-      <SupportModal isOpen={supportOpen} onClose={() => setSupportOpen(false)} />
     </div>
   );
 }

@@ -1,39 +1,49 @@
 'use client';
 
-import { CheckCircle2, XCircle, Info, X } from 'lucide-react';
+import { Check, Info, X } from 'lucide-react';
 import type { ToastItem } from '../context/ToastContext';
+import { cx, focusRing } from './ui';
 
 interface ToastViewportProps {
   toasts: ToastItem[];
   onDismiss: (id: number) => void;
 }
 
+/**
+ * Short messages after an action, bottom of the screen. Ink boxes like the
+ * rest of the site; an error is told by its red rule and is announced
+ * assertively, the others politely.
+ */
 export default function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
-  if (toasts.length === 0) return null;
-
   return (
-    <div className="fixed bottom-6 right-6 z-[300] flex flex-col gap-3 w-[calc(100%-3rem)] max-w-sm">
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[400] mx-auto flex max-w-sm flex-col gap-2 sm:left-auto sm:right-6 sm:mx-0"
+    >
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="animate-fade-in-up flex items-start gap-3 bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl px-4 py-3.5 backdrop-blur-md"
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          className={cx(
+            'animate-rise-in pointer-events-auto flex items-start gap-3 border bg-ink py-2 pl-4 pr-1 text-paper',
+            toast.type === 'error' ? 'border-accent-text border-l-4' : 'border-ink'
+          )}
         >
           {toast.type === 'success' ? (
-            <CheckCircle2 size={18} strokeWidth={1.5} className="text-violet-400 shrink-0 mt-0.5" />
+            <Check size={16} className="mt-2.5 shrink-0" aria-hidden />
           ) : toast.type === 'info' ? (
-            <Info size={18} strokeWidth={1.5} className="text-sky-400 shrink-0 mt-0.5" />
+            <Info size={16} className="mt-2.5 shrink-0" aria-hidden />
           ) : (
-            <XCircle size={18} strokeWidth={1.5} className="text-rose-400 shrink-0 mt-0.5" />
+            <X size={16} className="mt-2.5 shrink-0" aria-hidden />
           )}
-          <p className="flex-grow font-sans text-xs text-white/90 leading-relaxed pt-0.5">
-            {toast.message}
-          </p>
+          <p className="flex-grow py-2 font-sans text-sm leading-snug">{toast.message}</p>
           <button
+            type="button"
             onClick={() => onDismiss(toast.id)}
-            className="text-zinc-500 hover:text-white transition-colors shrink-0"
-            aria-label="Dismiss"
+            aria-label="Tutup pemberitahuan"
+            className={cx('flex h-11 w-11 shrink-0 items-center justify-center opacity-70 hover:opacity-100', focusRing)}
           >
-            <X size={14} />
+            <X size={14} aria-hidden />
           </button>
         </div>
       ))}

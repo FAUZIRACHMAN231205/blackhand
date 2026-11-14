@@ -59,15 +59,15 @@ describe('POST /api/auth/otp/request', () => {
 
     expect(res.status).toBe(429)
     expect(res.headers.get('retry-after')).toBe('290')
-    expect((await res.json()).error).toMatch(/5 minutes/)
+    expect((await res.json()).error).toMatch(/5 menit/)
     expect(requestOtp).not.toHaveBeenCalled()
     expect(send).not.toHaveBeenCalled()
   })
 
-  it('says "1 minute", not "1 minutes"', async () => {
+  it('rounds a short wait up to one minute', async () => {
     checkOtpIpLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 40 })
 
-    expect((await (await post({ email: 'buyer@example.com' })).json()).error).toMatch(/1 minute\./)
+    expect((await (await post({ email: 'buyer@example.com' })).json()).error).toMatch(/1 menit\./)
   })
 
   it('rejects a malformed email before counting it against the network', async () => {

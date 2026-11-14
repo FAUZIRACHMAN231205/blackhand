@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('Error fetching products:', error);
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memuat produk.' }, { status: 500 });
   }
 
   const products = data ?? [];
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return NextResponse.json({ error: 'Data permintaan tidak valid.' }, { status: 400 });
   }
 
   const invalid = validateProductInput(body);
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
   if (error || !data) {
     console.error('Error creating product:', error);
-    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
+    return NextResponse.json({ error: 'Produk gagal dibuat.' }, { status: 500 });
   }
 
   return NextResponse.json({ product: data });

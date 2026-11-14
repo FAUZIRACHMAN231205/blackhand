@@ -5,21 +5,42 @@ import { checkOtpIpLimit, clientIp } from '@/app/lib/otpIpLimit';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+/** The sign-in email: the same monochrome look as the site, in Indonesian. */
+function otpEmailHtml(code: string) {
+  return `
+    <div style="font-family: Poppins, Helvetica, Arial, sans-serif; max-width: 420px; margin: 0 auto; color: #0a0a0a;">
+      <p style="font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 28px; margin: 0 0 24px;">
+        Blackhand<span style="color: #6b6b6b;">.</span>
+      </p>
+      <p style="font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; margin: 0 0 8px; color: #6b6b6b;">
+        Kode masuk Anda
+      </p>
+      <p style="font-family: 'Courier New', monospace; font-size: 34px; font-weight: 700; letter-spacing: 8px; margin: 0; padding: 16px 0; border-top: 1px solid #0a0a0a; border-bottom: 1px solid #0a0a0a;">
+        ${code}
+      </p>
+      <p style="font-size: 14px; line-height: 1.6; margin: 20px 0 8px;">
+        Masukkan kode ini di halaman masuk. Kode berlaku 5 menit.
+      </p>
+      <p style="font-size: 12px; line-height: 1.6; color: #6b6b6b; margin: 0;">
+        Tidak merasa meminta kode? Abaikan email ini; akun Anda tetap aman.
+      </p>
+    </div>
+  `;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
 
     if (!email || typeof email !== 'string' || !email.includes('@')) {
-      return NextResponse.json({ error: 'Valid email is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Masukkan alamat email yang valid.' }, { status: 400 });
     }
 
     const ipLimit = await checkOtpIpLimit(clientIp(request.headers));
     if (!ipLimit.ok) {
       const minutes = Math.ceil(ipLimit.retryAfterSeconds / 60);
       return NextResponse.json(
-        {
-          error: `Too many code requests from your network. Please try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
-        },
+        { error: `Terlalu banyak permintaan kode dari jaringan Anda. Coba lagi dalam ${minutes} menit.` },
         { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) } }
       );
     }
@@ -29,12 +50,12 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       if (result.reason === 'rate_limited') {
         return NextResponse.json(
-          { error: 'Please wait 3 minutes before requesting another code' },
+          { error: 'Kode baru saja dikirim. Tunggu 3 menit sebelum meminta lagi.' },
           { status: 429 }
         );
       }
       return NextResponse.json(
-        { error: 'Could not reach the database. Please try again shortly.' },
+        { error: 'Server sedang tidak bisa dihubungi. Coba lagi sebentar lagi.' },
         { status: 503 }
       );
     }
@@ -44,49 +65,18 @@ export async function POST(request: NextRequest) {
     const { error: sendError } = await resend.emails.send({
       from: appEmail,
       to: email,
-      subject: 'Your BLACKHAND Authentication Code',
-      html: `
-        <div style="font-family: 'Poppins', sans-serif; max-width: 400px; margin: 0 auto;">
-          <h2 style="font-size: 28px; font-weight: 300; margin-bottom: 20px;">
-            <span style="font-style: italic;">BLACKHAND</span>
-          </h2>
-
-          <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
-            Your authentication code is:
-          </p>
-
-          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 30px;">
-            <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 0; font-family: 'Courier New', monospace;">
-              ${result.code}
-            </p>
-          </div>
-
-          <p style="color: #999; font-size: 12px; margin-bottom: 10px;">
-            This code will expire in 5 minutes.
-          </p>
-
-          <p style="color: #999; font-size: 12px;">
-            If you didn't request this code, you can safely ignore this email.
-          </p>
-
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-
-          <p style="color: #ccc; font-size: 11px; text-align: center;">
-            &copy; 2026 BLACKHAND. All rights reserved.
-          </p>
-        </div>
-      `,
+      subject: 'Kode masuk Blackhand',
+      html: otpEmailHtml(result.code),
     });
 
     if (sendError) {
       console.error('Resend error:', sendError);
-      return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
+      return NextResponse.json({ error: 'Email kode gagal dikirim. Coba lagi.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     console.error('OTP request error:', error);
-    const errMsg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMsg || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan. Coba lagi.' }, { status: 500 });
   }
 }

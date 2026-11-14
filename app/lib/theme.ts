@@ -3,8 +3,11 @@
 /** localStorage key: 'dark' | 'light' when the visitor chose one; absent means "follow the device". */
 export const THEME_STORAGE_KEY = 'theme';
 
-/** Browser chrome colour (status bar, task switcher) for each theme. Matches the page backgrounds. */
-export const THEME_COLORS = { light: '#ffffff', dark: '#020617' } as const;
+/**
+ * Browser chrome colour (status bar, task switcher) for each theme: the
+ * `paper` token from app/globals.css, so the bar and the page are one surface.
+ */
+export const THEME_COLORS = { light: '#ffffff', dark: '#0a0a0a' } as const;
 
 /**
  * Runs inline in <head>, before the first paint, so a dark-mode visitor never

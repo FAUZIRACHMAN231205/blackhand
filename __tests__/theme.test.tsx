@@ -84,7 +84,7 @@ describe('ThemeProvider', () => {
     expect(root().classList.contains('dark')).toBe(true)
     expect(root().style.colorScheme).toBe('dark')
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
-    expect(document.querySelector('meta[name="theme-color"]')).toHaveAttribute('content', '#020617')
+    expect(document.querySelector('meta[name="theme-color"]')).toHaveAttribute('content', '#0a0a0a')
     expect(screen.getByRole('button')).toHaveTextContent('dark')
   })
 

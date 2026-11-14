@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { rating } = await request.json();
 
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: 'Rating must be an integer between 1 and 5' }, { status: 400 });
+      return NextResponse.json({ error: 'Rating harus angka bulat 1 sampai 5.' }, { status: 400 });
     }
 
     const { error } = await supabaseAdmin.from('work_ratings').upsert(
@@ -26,13 +26,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (error) {
       console.error('Error submitting rating:', error);
-      return NextResponse.json({ error: 'Failed to submit rating' }, { status: 500 });
+      return NextResponse.json({ error: 'Rating gagal disimpan.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     console.error('Submit rating error:', error);
-    const errMsg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMsg || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan. Coba lagi.' }, { status: 500 });
   }
 }

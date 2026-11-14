@@ -11,7 +11,7 @@ async function loadOwnedImage(imageId: string, userId: string) {
     .eq('id', imageId)
     .maybeSingle();
 
-  if (!image) return { ok: false as const, status: 404, message: 'Image not found' };
+  if (!image) return { ok: false as const, status: 404, message: 'Gambar tidak ditemukan.' };
 
   const { data: work } = await supabaseAdmin
     .from('works')
@@ -20,7 +20,7 @@ async function loadOwnedImage(imageId: string, userId: string) {
     .maybeSingle();
 
   if (!work || work.created_by !== userId) {
-    return { ok: false as const, status: 403, message: 'Forbidden' };
+    return { ok: false as const, status: 403, message: 'Anda tidak punya akses untuk ini.' };
   }
 
   return { ok: true as const, image };
@@ -79,7 +79,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   if (error) {
     console.error('Error deleting image:', error);
-    return NextResponse.json({ error: 'Failed to delete image' }, { status: 500 });
+    return NextResponse.json({ error: 'Gambar gagal dihapus.' }, { status: 500 });
   }
 
   // Row is gone; drop both the public preview and the private original.

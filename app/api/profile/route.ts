@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest) {
     const { full_name } = await request.json();
 
     if (typeof full_name !== 'string') {
-      return NextResponse.json({ error: 'full_name is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Nama wajib diisi.' }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin
@@ -23,7 +23,7 @@ export async function PATCH(request: NextRequest) {
 
     if (error || !data) {
       console.error('Error updating profile:', error);
-      return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+      return NextResponse.json({ error: 'Profil gagal disimpan.' }, { status: 500 });
     }
 
     // Refresh the session cookie so the new name is reflected immediately.
@@ -32,7 +32,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ user: data });
   } catch (error: unknown) {
     console.error('Update profile error:', error);
-    const errMsg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMsg || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan. Coba lagi.' }, { status: 500 });
   }
 }

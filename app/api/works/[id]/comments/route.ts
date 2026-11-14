@@ -11,10 +11,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { content } = await request.json();
 
     if (!content || typeof content !== 'string' || !content.trim()) {
-      return NextResponse.json({ error: 'Content is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Komentar tidak boleh kosong.' }, { status: 400 });
     }
     if (content.length > 500) {
-      return NextResponse.json({ error: 'Content is too long (max 500 characters)' }, { status: 400 });
+      return NextResponse.json({ error: 'Komentar terlalu panjang (maksimal 500 karakter).' }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin
@@ -31,13 +31,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (error || !data) {
       console.error('Error adding comment:', error);
-      return NextResponse.json({ error: 'Failed to add comment' }, { status: 500 });
+      return NextResponse.json({ error: 'Komentar gagal dikirim.' }, { status: 500 });
     }
 
     return NextResponse.json({ comment: data });
   } catch (error: unknown) {
     console.error('Add comment error:', error);
-    const errMsg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMsg || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan. Coba lagi.' }, { status: 500 });
   }
 }

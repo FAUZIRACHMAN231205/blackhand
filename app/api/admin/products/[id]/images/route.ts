@@ -18,13 +18,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const auth = await requireAdmin();
   if ('error' in auth) return auth.error;
   const { id } = await params;
-  if (!UUID_RE.test(id)) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+  if (!UUID_RE.test(id)) return NextResponse.json({ error: 'Produk tidak ditemukan.' }, { status: 404 });
 
   let uploadPath: unknown;
   try {
     ({ uploadPath } = await request.json());
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return NextResponse.json({ error: 'Data permintaan tidak valid.' }, { status: 400 });
   }
 
   // Pin the path to this product's raw uploads, so a request can't claim some
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       ? uploadPath.match(new RegExp(`^products/${id}/([A-Za-z0-9-]+)-upload\\.[a-z0-9]+$`))
       : null;
   if (!match) {
-    return NextResponse.json({ error: 'A valid uploadPath is required' }, { status: 400 });
+    return NextResponse.json({ error: 'Lokasi unggahan tidak valid.' }, { status: 400 });
   }
   const fileId = match[1];
   const rawPath = uploadPath as string;
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { data: product } = await supabaseAdmin.from('products').select('id').eq('id', id).maybeSingle();
   if (!product) {
     await removeProductImages([rawPath]);
-    return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    return NextResponse.json({ error: 'Produk tidak ditemukan.' }, { status: 404 });
   }
 
   const { data: existing } = await supabaseAdmin
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .download(rawPath);
   if (downloadError || !raw) {
     console.error('Failed to read uploaded product photo:', rawPath, downloadError);
-    return NextResponse.json({ error: 'Uploaded photo not found' }, { status: 400 });
+    return NextResponse.json({ error: 'Foto yang diunggah tidak ditemukan.' }, { status: 400 });
   }
 
   let resized: Buffer;
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } catch (error) {
     console.error('Failed to process product photo:', error);
     await removeProductImages([rawPath]);
-    return NextResponse.json({ error: 'That file could not be read as an image' }, { status: 400 });
+    return NextResponse.json({ error: 'File itu tidak bisa dibaca sebagai gambar.' }, { status: 400 });
   }
 
   const finalPath = productImageKey(id, fileId);
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (uploadError) {
     console.error('Failed to store product photo:', uploadError);
-    return NextResponse.json({ error: 'Failed to save photo' }, { status: 500 });
+    return NextResponse.json({ error: 'Foto gagal disimpan.' }, { status: 500 });
   }
 
   const { data: publicUrl } = supabaseAdmin.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(finalPath);
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (error || !image) {
     console.error('Error saving product image:', error);
     await removeProductImages([finalPath]);
-    return NextResponse.json({ error: 'Failed to save photo' }, { status: 500 });
+    return NextResponse.json({ error: 'Foto gagal disimpan.' }, { status: 500 });
   }
 
   await syncProductCover(id);

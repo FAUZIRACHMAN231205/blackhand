@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('Error fetching works:', error);
-    return NextResponse.json({ error: 'Failed to fetch works' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal memuat karya.' }, { status: 500 });
   }
 
   const works = data ?? [];
@@ -45,11 +45,11 @@ export async function POST(request: NextRequest) {
     const { title, description, category, is_published, featured_image_url, price_idr, is_for_sale } = body;
 
     if (!title || typeof title !== 'string' || !title.trim()) {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Judul wajib diisi.' }, { status: 400 });
     }
     if (!isValidCategory(category)) {
       return NextResponse.json(
-        { error: `Category must be one of: ${WORK_CATEGORIES.join(', ')}` },
+        { error: `Kategori harus salah satu dari: ${WORK_CATEGORIES.join(', ')}` },
         { status: 400 }
       );
     }
@@ -76,13 +76,12 @@ export async function POST(request: NextRequest) {
 
     if (error || !data) {
       console.error('Error creating work:', error);
-      return NextResponse.json({ error: 'Failed to create work' }, { status: 500 });
+      return NextResponse.json({ error: 'Karya gagal dibuat.' }, { status: 500 });
     }
 
     return NextResponse.json({ work: data });
   } catch (error: unknown) {
     console.error('Create work error:', error);
-    const errMsg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMsg || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan. Coba lagi.' }, { status: 500 });
   }
 }

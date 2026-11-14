@@ -20,7 +20,7 @@ export async function PATCH(request: NextRequest) {
   try {
     ({ shipping_fee_idr: fee } = await request.json());
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return NextResponse.json({ error: 'Data permintaan tidak valid.' }, { status: 400 });
   }
 
   const invalid = validateShippingFee(fee);
@@ -32,7 +32,7 @@ export async function PATCH(request: NextRequest) {
 
   if (error) {
     console.error('Error saving shop settings:', error);
-    return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
+    return NextResponse.json({ error: 'Pengaturan gagal disimpan.' }, { status: 500 });
   }
 
   return NextResponse.json({ shippingFeeIdr: fee });
