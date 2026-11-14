@@ -69,6 +69,13 @@ own buttons, tags, fields or cards.
 | `EmptyState` | Nothing to show yet: what will appear and the way forward |
 | `FilterTabs` | Category/filter row; the caller updates the URL so filtered views can be shared |
 | `TabLinks` | Tabs that are separate pages (Akun, later Admin), marked with `aria-current` |
+| `ImageViewer` | The big picture on a detail page: arrows, counter, thumbnails. `fit="contain"` for artworks, `"cover"` for products |
+| `Notice` | A boxed message: `info` (solid), `pending` (dashed: Sedang dibeli, menunggu bayar), `error` (red text, announced) |
+| `QuantityStepper` | − n + for how many to buy |
+
+Grids use `WorkCard` and `ProductCard` from `app/component/CatalogCards.tsx`, which
+decide the one tag a card shows. Dialogs (`AuthModal`, `ConfirmDialog`) follow the
+same rules: square, ink border, `bg-ink/60` backdrop, Escape closes.
 
 Site-wide pieces outside the kit: `Navbar` (Karya · Toko · Manifesto, account menu,
 full-screen menu on phones) and `SiteFooter`. The menu, the Akun tabs and the
@@ -97,7 +104,7 @@ redirects for retired addresses all come from `app/lib/routes.ts`.
 
 1. **Fondasi** — tokens and the UI kit. ✅
 2. **Struktur** — Karya merge, Akun tabs, redirects, navigation and footer. ✅
-3. **Halaman publik** — Beranda, Karya, Detail, Toko, Produk, Pembayaran, Manifesto.
+3. **Halaman publik** — Beranda, Karya, Detail, Toko, Produk, Pembayaran, Manifesto. ✅
 4. **Akun dan admin.**
 5. **Rapikan** — Indonesian copy everywhere, remove old components, final check at
    320 / 375 / 768 / 1280 px, light and dark.

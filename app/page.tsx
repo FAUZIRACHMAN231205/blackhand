@@ -1,26 +1,50 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { ImageOff, ShoppingBag } from 'lucide-react';
+import Image from 'next/image';
 import Navbar from './component/Navbar';
 import AnnouncementBar from './component/AnnouncementBar';
 import AuthModal from './component/AuthModal';
 import SiteFooter from './component/SiteFooter';
-import { ACCOUNT_HOME } from './lib/routes';
+import { ProductCard, WorkCard } from './component/CatalogCards';
+import { Button } from './component/ui';
 import { useAuth } from './hooks/useAuth';
+import { useOwnedWorkIds } from './hooks/useOwnedWorkIds';
+import { ACCOUNT_HOME } from './lib/routes';
 import { supabase } from './lib/supabaseClient';
-import { formatIdr } from './lib/categories';
-import { discountPercent, isNewArrival } from './lib/shop';
-import Image from 'next/image';
-import type { Work, Product } from './types';
+import type { Product, Work } from './types';
 
 const PREVIEW_WORK_COLUMNS =
   'id, title, description, category, featured_image_url, is_featured, is_published, created_at, price_idr, is_for_sale, sold_at';
-const PREVIEW_COUNT = 6;
+const WORK_COUNT = 8;
+const PRODUCT_COUNT = 4;
 
-type LandingTab = 'works' | 'shop';
+type Load<T> = { state: 'loading' } | { state: 'ready'; items: T[] } | { state: 'failed' };
+
+function SectionHeader({ id, title, href, linkLabel }: { id: string; title: string; href: string; linkLabel: string }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-ink pb-3">
+      <h2 id={id} className="font-sans text-2xl font-bold uppercase tracking-[-0.02em] sm:text-3xl">{title}</h2>
+      <Button variant="ghost" size="sm" href={href} className="-mr-2">
+        {linkLabel} →
+      </Button>
+    </div>
+  );
+}
+
+function GridSkeleton({ count, label }: { count: number; label: string }) {
+  return (
+    <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4" aria-busy="true" aria-label={label}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="grid gap-2.5">
+          <div className="aspect-square animate-pulse bg-sheet" />
+          <div className="h-5 w-3/4 animate-pulse bg-sheet" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function HomeContent() {
   const { user, loading } = useAuth();
@@ -29,11 +53,10 @@ function HomeContent() {
   // proxy.ts sends signed-out visitors of Akun/Admin here with ?masuk=1.
   const signInRequested = searchParams.get('masuk') === '1';
   const [isModalOpen, setIsModalOpen] = useState(signInRequested);
+  const ownedIds = useOwnedWorkIds(Boolean(user));
 
-  const [activeTab, setActiveTab] = useState<LandingTab>('works');
-  const [previewWorks, setPreviewWorks] = useState<Work[]>([]);
-  const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
-  const [loadingPreview, setLoadingPreview] = useState(true);
+  const [works, setWorks] = useState<Load<Work>>({ state: 'loading' });
+  const [products, setProducts] = useState<Load<Product>>({ state: 'loading' });
 
   // Already signed in (e.g. the cookie was refreshed in another tab): no
   // dialog, go where they were headed.
@@ -46,27 +69,28 @@ function HomeContent() {
     if (signInRequested) router.replace('/', { scroll: false });
   };
 
-  // Both tabs' content is fetched once up front, so switching between "Karya"
-  // and "Merchandise" is an instant client-side swap, not a fresh request.
   useEffect(() => {
     let ignore = false;
-    (async () => {
-      const [worksResult, shopResult] = await Promise.all([
-        supabase
-          .from('works')
-          .select(PREVIEW_WORK_COLUMNS)
-          .eq('is_published', true)
-          .order('created_at', { ascending: false })
-          .limit(PREVIEW_COUNT),
-        fetch(`/api/shop/products?page=0`)
-          .then((res) => (res.ok ? res.json() : null))
-          .catch(() => null),
-      ]);
-      if (ignore) return;
-      setPreviewWorks((worksResult.data ?? []) as Work[]);
-      setPreviewProducts(((shopResult?.products ?? []) as Product[]).slice(0, PREVIEW_COUNT));
-      setLoadingPreview(false);
-    })();
+    supabase
+      .from('works')
+      .select(PREVIEW_WORK_COLUMNS)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+      .limit(WORK_COUNT)
+      .then(({ data, error }) => {
+        if (ignore) return;
+        if (error) console.error('Error fetching latest works:', error);
+        setWorks(error ? { state: 'failed' } : { state: 'ready', items: (data ?? []) as Work[] });
+      });
+    fetch('/api/shop/products?page=0')
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: { products: Product[] }) => {
+        if (!ignore) setProducts({ state: 'ready', items: (data.products ?? []).slice(0, PRODUCT_COUNT) });
+      })
+      .catch((err) => {
+        console.error('Error fetching products:', err);
+        if (!ignore) setProducts({ state: 'failed' });
+      });
     return () => {
       ignore = true;
     };
@@ -77,200 +101,86 @@ function HomeContent() {
       <AnnouncementBar />
       <Navbar announcementBar onOpenModal={() => setIsModalOpen(true)} />
 
-      <main className="relative w-full h-[100dvh] overflow-hidden bg-white dark:bg-slate-950">
-
-        {/* Satu gambar responsif untuk semua ukuran layar. next/image otomatis
-            menyajikan varian kecil ke mobile via `sizes`. Untuk seni terarah
-            (crop potret khusus mobile), tambahkan kembali aset arte-mobile.jpeg
-            dan pisahkan dengan <picture>/breakpoint. */}
-        <div className="absolute inset-0">
-          <Image
-            src="/arte.jpeg"
-            alt="Blackhand Background"
-            fill
-            sizes="100vw"
-            className="object-cover object-center dark:opacity-85"
-            priority
-            draggable={false}
-          />
-        </div>
-
-        {/* Enhanced Dark Art Vignette Overlay */}
-        <div className="absolute inset-0 bg-black/10 dark:bg-black/30 pointer-events-none" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-black/40 to-black/95 dark:via-black/60 dark:to-black/100 pointer-events-none" />
-      </main>
-
-      {/* Below the hero, dropdead-style: the catalog is right here on the
-          landing page, no click-through required. A tab swaps between the
-          two different things Blackhand sells — art and merchandise —
-          without leaving this page. */}
-      <section className="bg-white px-6 py-16 transition-colors duration-300 dark:bg-slate-950 sm:px-10 sm:py-20 md:px-16">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-10 flex flex-col items-start gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-2 font-sans text-[10px] font-black uppercase tracking-[0.4em] text-violet-500">
-                {activeTab === 'works' ? 'Dari Studio' : 'Dari Etalase'}
+      <main className="bg-paper text-ink">
+        {/* Hero: one sentence, the two ways in, then the studio's picture. */}
+        <section className="px-4 pb-10 pt-32 sm:px-6 md:px-8 md:pt-40">
+          <div className="mx-auto grid max-w-7xl gap-8">
+            <h1 className="max-w-5xl text-balance font-sans text-5xl font-bold uppercase leading-[0.92] tracking-[-0.04em] sm:text-7xl lg:text-8xl">
+              Where shadow becomes form.
+            </h1>
+            <div className="flex flex-col gap-6 border-t border-ink pt-5 sm:flex-row sm:items-end sm:justify-between">
+              <p className="max-w-md font-sans text-base text-mute">
+                Karya seni eksklusif dari studio Blackhand — setiap karya hanya untuk satu pemilik — dan merchandise
+                resmi.
               </p>
-              <h2 className="font-serif text-3xl italic sm:text-4xl md:text-5xl">
-                {activeTab === 'works' ? 'Karya Terbaru' : 'Merchandise Terbaru'}
-              </h2>
-            </div>
-
-            <div className="relative inline-grid w-fit grid-cols-2 rounded-full border border-black/10 bg-black/[0.03] p-0.5 dark:border-white/10 dark:bg-white/[0.04]">
-              {/* Sliding indicator — animates position instead of swapping a flat bg color */}
-              <div
-                aria-hidden
-                className={`absolute inset-y-0.5 left-0.5 w-[calc(50%-0.125rem)] rounded-full bg-black shadow-[0_0_12px_-2px_rgba(139,92,246,0.7)] transition-transform duration-300 ease-out dark:bg-white ${
-                  activeTab === 'shop' ? 'translate-x-full' : 'translate-x-0'
-                }`}
-              />
-              {(
-                [
-                  ['works', 'Karya'],
-                  ['shop', 'Merchandise'],
-                ] as const
-              ).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  aria-pressed={activeTab === tab}
-                  className={`relative z-10 flex min-h-[44px] items-center justify-center whitespace-nowrap rounded-full px-4 font-sans text-[11px] font-black uppercase tracking-wide transition-colors duration-300 ${
-                    activeTab === tab
-                      ? 'text-white dark:text-black'
-                      : 'text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+              <div className="flex flex-wrap gap-3">
+                <Button href="/gallery">Lihat karya</Button>
+                <Button variant="secondary" href="/shop">
+                  Toko
+                </Button>
+              </div>
             </div>
           </div>
+        </section>
 
-          {loadingPreview ? (
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
-              {Array.from({ length: PREVIEW_COUNT }).map((_, i) => (
-                <div key={i} className="aspect-square animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />
-              ))}
-            </div>
-          ) : activeTab === 'works' ? (
-            previewWorks.length === 0 ? (
-              <p className="py-16 text-center font-sans text-sm text-black/50 dark:text-white/50">
-                Belum ada karya yang dipublikasikan.
-              </p>
+        <div className="px-4 sm:px-6 md:px-8">
+          <div className="relative mx-auto aspect-[4/5] max-w-7xl overflow-hidden bg-sheet sm:aspect-[21/9]">
+            <Image
+              src="/arte.jpeg"
+              alt="Karya studio Blackhand"
+              fill
+              sizes="(min-width: 1280px) 1280px, 100vw"
+              className="object-cover object-center"
+              priority
+              draggable={false}
+            />
+          </div>
+        </div>
+
+        <section className="px-4 pt-16 sm:px-6 md:px-8 md:pt-24" aria-labelledby="latest-works">
+          <div className="mx-auto grid max-w-7xl gap-8">
+            <SectionHeader id="latest-works" title="Karya terbaru" href="/gallery" linkLabel="Semua karya" />
+
+            {works.state === 'loading' ? (
+              <GridSkeleton count={WORK_COUNT} label="Memuat karya" />
+            ) : works.state === 'failed' ? (
+              <p className="font-sans text-sm text-mute">Karya belum bisa dimuat. Coba muat ulang halaman.</p>
+            ) : works.items.length === 0 ? (
+              <p className="font-sans text-sm text-mute">Karya pertama studio segera hadir.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
-                {previewWorks.map((work) => (
-                  <Link key={work.id} href={`/gallery/${work.id}`} className="group">
-                    <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-black/5 transition-colors group-hover:border-violet-500/30 dark:border-white/10 dark:bg-white/5">
-                      {work.featured_image_url ? (
-                        <img
-                          src={work.featured_image_url}
-                          alt={work.title}
-                          loading="lazy"
-                          className="aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex aspect-square w-full items-center justify-center">
-                          <ImageOff size={36} strokeWidth={1.25} className="opacity-40" />
-                        </div>
-                      )}
-                      {work.sold_at ? (
-                        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 font-sans text-[10px] font-black uppercase tracking-wider text-black">
-                          Terjual
-                        </span>
-                      ) : (
-                        work.is_for_sale &&
-                        work.price_idr != null && (
-                          <span className="absolute left-3 top-3 rounded-full bg-zinc-950/85 px-2.5 py-1 font-sans text-[10px] font-black tracking-wider text-white">
-                            {formatIdr(work.price_idr)}
-                          </span>
-                        )
-                      )}
-                    </div>
-                    <div className="mt-3">
-                      <h3 className="line-clamp-1 font-serif text-base italic transition-colors group-hover:text-violet-600 dark:group-hover:text-violet-400 sm:text-lg">
-                        {work.title}
-                      </h3>
-                      <p className="mt-0.5 font-sans text-xs uppercase tracking-wider text-black/50 dark:text-white/50">
-                        {work.category}
-                      </p>
-                    </div>
-                  </Link>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
+                {works.items.map((work) => (
+                  <WorkCard key={work.id} work={work} owned={ownedIds.has(work.id)} />
                 ))}
               </div>
-            )
-          ) : previewProducts.length === 0 ? (
-            <p className="py-16 text-center font-sans text-sm text-black/50 dark:text-white/50">
-              Belum ada produk yang dipublikasikan.
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
-              {previewProducts.map((product) => {
-                const soldOut = product.stock <= 0;
-                const pctOff = discountPercent(product.price_idr, product.compare_at_price_idr);
-                const isNew = !soldOut && pctOff === null && isNewArrival(product.created_at);
-                return (
-                  <Link key={product.id} href={`/shop/${product.id}`} className="group">
-                    <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-black/5 transition-colors group-hover:border-violet-500/30 dark:border-white/10 dark:bg-white/5">
-                      {product.cover_image_url ? (
-                        <img
-                          src={product.cover_image_url}
-                          alt={product.name}
-                          loading="lazy"
-                          className={`aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-105 ${
-                            soldOut ? 'opacity-60 grayscale' : ''
-                          }`}
-                        />
-                      ) : (
-                        <div className="flex aspect-square w-full items-center justify-center">
-                          <ShoppingBag size={36} strokeWidth={1.25} className="opacity-40" />
-                        </div>
-                      )}
-                      <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
-                        {soldOut ? (
-                          <span className="rounded-full bg-white/90 px-2.5 py-1 font-sans text-[10px] font-black uppercase tracking-wider text-black">
-                            Stok Habis
-                          </span>
-                        ) : pctOff !== null ? (
-                          <span className="rounded-full bg-rose-600 px-2.5 py-1 font-sans text-[10px] font-black uppercase tracking-wider text-white">
-                            −{pctOff}%
-                          </span>
-                        ) : isNew ? (
-                          <span className="rounded-full bg-violet-600 px-2.5 py-1 font-sans text-[10px] font-black uppercase tracking-wider text-white">
-                            Baru
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <h3 className="line-clamp-1 font-serif text-base italic transition-colors group-hover:text-violet-600 dark:group-hover:text-violet-400 sm:text-lg">
-                        {product.name}
-                      </h3>
-                      <div className="mt-0.5 flex items-baseline gap-2">
-                        <p className="font-sans text-xs font-bold">{formatIdr(product.price_idr)}</p>
-                        {pctOff !== null && (
-                          <p className="font-sans text-[11px] text-black/40 line-through dark:text-white/40">
-                            {formatIdr(product.compare_at_price_idr as number)}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="mt-10 flex justify-center">
-            <Link
-              href={activeTab === 'works' ? '/gallery' : '/shop'}
-              className="rounded-xl border border-black/10 bg-black/[0.03] px-8 py-3.5 font-sans text-[11px] font-black uppercase tracking-[0.2em] transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10"
-            >
-              Lihat Semua {activeTab === 'works' ? 'Karya' : 'Merchandise'}
-            </Link>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* Merchandise supports the art: one row, below it. */}
+        <section className="px-4 py-16 sm:px-6 md:px-8 md:py-24" aria-labelledby="merch">
+          <div className="mx-auto grid max-w-7xl gap-8">
+            <SectionHeader id="merch" title="Merchandise" href="/shop" linkLabel="Ke toko" />
+
+            {products.state === 'loading' ? (
+              <GridSkeleton count={PRODUCT_COUNT} label="Memuat merchandise" />
+            ) : products.state === 'failed' ? (
+              <p className="font-sans text-sm text-mute">Merchandise belum bisa dimuat. Coba muat ulang halaman.</p>
+            ) : products.items.length === 0 ? (
+              <p className="font-sans text-sm text-mute">Merchandise resmi segera hadir.</p>
+            ) : (
+              // Phones: one swipeable row. Wider: four columns.
+              <div className="hide-scrollbar -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0">
+                {products.items.map((product) => (
+                  <div key={product.id} className="w-[44vw] max-w-[220px] shrink-0 snap-start md:w-auto md:max-w-none">
+                    <ProductCard product={product} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
 
       <SiteFooter />
 
@@ -281,7 +191,7 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-black dark:bg-slate-950"><div className="text-white text-xl">Loading...</div></div>}>
+    <Suspense fallback={<main className="min-h-[100dvh] bg-paper" />}>
       <HomeContent />
     </Suspense>
   );

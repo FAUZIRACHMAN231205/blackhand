@@ -4,8 +4,11 @@ import {
   CatalogCard,
   EmptyState,
   FilterTabs,
+  ImageViewer,
+  Notice,
   PageHeader,
   Price,
+  QuantityStepper,
   TabLinks,
   Tag,
   TextField,
@@ -164,6 +167,57 @@ describe('TabLinks', () => {
     expect(screen.getByRole('navigation', { name: 'Bagian akun' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Pesanan' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Koleksi' })).not.toHaveAttribute('aria-current')
+  })
+})
+
+describe('Notice', () => {
+  it('announces only errors, in the error colour', () => {
+    render(
+      <>
+        <Notice title="Terjual">Sudah dimiliki kolektor.</Notice>
+        <Notice tone="error">Gagal menyimpan.</Notice>
+      </>
+    )
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByRole('alert')).toHaveTextContent('Gagal menyimpan.')
+  })
+})
+
+describe('QuantityStepper', () => {
+  it('steps within its limits', () => {
+    const onChange = jest.fn()
+    const { rerender } = render(<QuantityStepper id="q" label="Jumlah" value={1} max={3} onChange={onChange} />)
+    expect(screen.getByRole('button', { name: 'Kurangi' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Tambah' }))
+    expect(onChange).toHaveBeenCalledWith(2)
+
+    rerender(<QuantityStepper id="q" label="Jumlah" value={3} max={3} onChange={onChange} />)
+    expect(screen.getByRole('button', { name: 'Tambah' })).toBeDisabled()
+  })
+})
+
+describe('ImageViewer', () => {
+  const images = [
+    { id: 'a', url: '/a.jpg' },
+    { id: 'b', url: '/b.jpg' },
+    { id: 'c', url: '/c.jpg' },
+  ]
+
+  it('wraps around with the arrows and marks the shown thumbnail', () => {
+    const onIndexChange = jest.fn()
+    render(<ImageViewer images={images} index={0} onIndexChange={onIndexChange} alt="Zidan Anyun" />)
+
+    expect(screen.getByRole('img', { name: 'Zidan Anyun — gambar 1 dari 3' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Gambar 1' })).toHaveAttribute('aria-current', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gambar sebelumnya' }))
+    expect(onIndexChange).toHaveBeenCalledWith(2)
+  })
+
+  it('shows a single image without arrows or thumbnails', () => {
+    render(<ImageViewer images={[images[0]]} index={0} onIndexChange={jest.fn()} alt="Zidan Anyun" />)
+    expect(screen.getByRole('img', { name: 'Zidan Anyun' })).toBeInTheDocument()
+    expect(screen.queryByRole('button')).toBeNull()
   })
 })
 

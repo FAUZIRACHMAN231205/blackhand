@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Star } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { Star, Loader2 } from 'lucide-react';
+import { Button, TextAreaField, cx, focusRing } from './ui';
 
 interface RatingStarsProps {
   workId: string;
@@ -14,7 +15,7 @@ interface RatingStarsProps {
   /**
    * Pre-aggregated rating for list/grid views. When provided (even as null),
    * the component uses it and skips its own Supabase read — this is how
-   * gallery/feed avoid one query per card.
+   * grids avoid one query per card.
    */
   stats?: { average: number; count: number } | null;
 }
@@ -26,13 +27,12 @@ interface RatingSnapshot {
   userRating: number;
 }
 
+const COMMENT_MAX = 500;
+
 /** Aggregate one work's ratings. Null on failure, so callers keep what they had. */
 async function loadRatingStats(workId: string, userId?: string): Promise<RatingSnapshot | null> {
   try {
-    const { data, error } = await supabase
-      .from('work_ratings')
-      .select('rating, user_id')
-      .eq('work_id', workId);
+    const { data, error } = await supabase.from('work_ratings').select('rating, user_id').eq('work_id', workId);
     if (error) throw error;
 
     const rows = data ?? [];
@@ -50,6 +50,28 @@ async function loadRatingStats(workId: string, userId?: string): Promise<RatingS
   }
 }
 
+/** Five stars in ink: filled, half, or outline. Monochrome like the rest of the site. */
+function StarIcon({ fill, size }: { fill: 'full' | 'half' | 'empty'; size: number }) {
+  if (fill === 'half') {
+    return (
+      <span className="relative inline-flex" aria-hidden>
+        <Star size={size} strokeWidth={1.5} className="text-mute" />
+        <span className="absolute inset-y-0 left-0 w-1/2 overflow-hidden">
+          <Star size={size} strokeWidth={1.5} className="fill-ink text-ink" />
+        </span>
+      </span>
+    );
+  }
+  return (
+    <Star
+      size={size}
+      strokeWidth={1.5}
+      aria-hidden
+      className={fill === 'full' ? 'fill-ink text-ink' : 'text-mute'}
+    />
+  );
+}
+
 export default function RatingStars({
   workId,
   userId,
@@ -60,7 +82,7 @@ export default function RatingStars({
   stats,
 }: RatingStarsProps) {
   // List/grid views pass pre-aggregated `stats` (even null); those are used as
-  // they are, read straight from props. Only a standalone widget loads its own.
+  // they are. Only a standalone widget loads its own.
   const provided = stats !== undefined;
   const [fetched, setFetched] = useState<RatingSnapshot>({ average: 0, count: 0, userRating: 0 });
   const [fetching, setFetching] = useState<boolean>(true);
@@ -70,13 +92,15 @@ export default function RatingStars({
   const loading = !provided && fetching;
 
   const [hoverRating, setHoverRating] = useState<number | null>(null);
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [rateError, setRateError] = useState<string | null>(null);
 
-  // States for inline comment box
-  const [showCommentForm, setShowCommentForm] = useState<boolean>(false);
-  const [commentText, setCommentText] = useState<string>('');
-  const [pendingRating, setPendingRating] = useState<number>(0);
-  const [submittingComment, setSubmittingComment] = useState<boolean>(false);
+  // After rating, an optional comment to go with it.
+  const [showCommentForm, setShowCommentForm] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [pendingRating, setPendingRating] = useState(0);
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   useEffect(() => {
     if (provided) return;
@@ -96,6 +120,7 @@ export default function RatingStars({
     if (readOnly || !userId || submitting) return;
 
     setSubmitting(true);
+    setRateError(null);
     try {
       const res = await fetch(`/api/works/${workId}/ratings`, {
         method: 'POST',
@@ -105,19 +130,15 @@ export default function RatingStars({
       if (!res.ok) throw new Error(await res.text());
 
       setFetched((prev) => ({ ...prev, userRating: ratingValue }));
-      // Refresh statistics
       const snapshot = await loadRatingStats(workId, userId);
       if (snapshot) setFetched(snapshot);
 
-      // Show comment drawer inline with pending details
       setPendingRating(ratingValue);
       setShowCommentForm(true);
-
-      if (onRate) {
-        onRate(ratingValue);
-      }
+      onRate?.(ratingValue);
     } catch (err) {
       console.error('Error submitting rating:', err);
+      setRateError('Rating gagal disimpan. Coba lagi.');
     } finally {
       setSubmitting(false);
     }
@@ -127,6 +148,7 @@ export default function RatingStars({
     if (submittingComment) return;
 
     setSubmittingComment(true);
+    setCommentError(null);
     try {
       if (commentText.trim()) {
         const res = await fetch(`/api/works/${workId}/comments`, {
@@ -136,142 +158,120 @@ export default function RatingStars({
         });
         if (!res.ok) throw new Error(await res.text());
       }
-
       setCommentText('');
       setShowCommentForm(false);
-
-      if (onRate) {
-        onRate(pendingRating);
-      }
+      onRate?.(pendingRating);
     } catch (err) {
       console.error('Error submitting comment from rating stars:', err);
+      setCommentError('Komentar gagal dikirim. Coba lagi.');
     } finally {
       setSubmittingComment(false);
     }
   };
 
-  const handleCancelComment = () => {
-    setCommentText('');
-    setShowCommentForm(false);
-  };
+  const fillFor = (i: number, value: number): 'full' | 'half' | 'empty' =>
+    value >= i ? 'full' : value >= i - 0.5 ? 'half' : 'empty';
 
   if (loading && showDetails) {
-    return (
-      <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-sans text-xs">
-        <Loader2 className="animate-spin" size={14} />
-        <span>Memuat rating...</span>
-      </div>
-    );
+    return <div className="h-11 w-48 animate-pulse bg-sheet" aria-busy="true" aria-label="Memuat rating" />;
   }
 
-  // Helper to render stars
-  const renderStars = () => {
-    const stars = [];
-    const activeRating = hoverRating !== null ? hoverRating : (readOnly ? avgRating : userRating || avgRating);
-
-    for (let i = 1; i <= 5; i++) {
-      const isFull = activeRating >= i;
-      const isHalf = !isFull && activeRating >= i - 0.5;
-
-      stars.push(
-        <button
-          key={i}
-          type="button"
-          disabled={readOnly || submitting}
-          onClick={() => handleRate(i)}
-          onMouseEnter={() => !readOnly && setHoverRating(i)}
-          onMouseLeave={() => !readOnly && setHoverRating(null)}
-          className={`transition-all duration-150 relative ${
-            readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110 active:scale-95 flex items-center justify-center min-h-[44px] min-w-[44px]'
-          } ${submitting ? 'opacity-50' : ''}`}
-          style={readOnly ? { width: size, height: size } : undefined}
-        >
-          {isFull ? (
-            <Star
-              size={size}
-              className="text-amber-400 fill-amber-400 drop-shadow-[0_0_2px_rgba(251,191,36,0.3)]"
-            />
-          ) : isHalf ? (
-            <div className="relative">
-              <Star size={size} className="text-slate-300 dark:text-slate-700" />
-              <div className="absolute top-0 left-0 overflow-hidden" style={{ width: '50%' }}>
-                <Star size={size} className="text-amber-400 fill-amber-400" />
-              </div>
-            </div>
-          ) : (
-            <Star size={size} className="text-slate-300 dark:text-slate-700 hover:text-amber-300" />
-          )}
-        </button>
-      );
-    }
-    return stars;
-  };
-
+  // Compact read-only figure for grids: ★ 4.5 (12)
   if (readOnly && !showDetails) {
-    // Super compact read-only view (e.g. for feed card or gallery grid card)
     if (totalRatings === 0) return null;
     return (
-      <div className="inline-flex items-center gap-1 text-[11px] font-sans font-bold text-amber-500 bg-amber-500/5 dark:bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-500/10">
-        <Star size={11} className="fill-amber-500 text-amber-500" />
+      <span className="inline-flex items-center gap-1 font-sans text-[11px] font-bold tabular-nums text-ink">
+        <Star size={11} className="fill-ink text-ink" aria-hidden />
         <span>{avgRating}</span>
-        <span className="text-slate-400 dark:text-slate-500 font-normal">({totalRatings})</span>
+        <span className="font-normal text-mute">({totalRatings})</span>
+      </span>
+    );
+  }
+
+  const summary =
+    totalRatings > 0 ? (
+      <span className="font-sans text-sm tabular-nums">
+        <b>{avgRating}</b> <span className="text-mute">dari 5 · {totalRatings} rating</span>
+      </span>
+    ) : (
+      <span className="font-sans text-sm text-mute">Belum ada rating</span>
+    );
+
+  if (readOnly) {
+    const value = Math.round(avgRating * 2) / 2;
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex items-center gap-1" role="img" aria-label={`Rata-rata ${avgRating} dari 5 bintang`}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <StarIcon key={i} fill={fillFor(i, value)} size={size} />
+          ))}
+        </span>
+        {showDetails && summary}
       </div>
     );
   }
 
+  const shown = hoverRating ?? (userRating || avgRating);
+
   return (
-    <div className="flex flex-col gap-1.5 font-sans">
-      <div className="flex items-center gap-1.5">
-        <div className="flex items-center gap-0.5">{renderStars()}</div>
-        {showDetails && totalRatings > 0 && (
-          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-            {avgRating} <span className="text-slate-400 dark:text-slate-500 font-normal">({totalRatings} rating)</span>
-          </span>
-        )}
-        {showDetails && totalRatings === 0 && (
-          <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">Belum ada rating</span>
-        )}
+    <div className="grid gap-2 font-sans">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div role="radiogroup" aria-label="Beri rating" className="-ml-2.5 flex items-center" onMouseLeave={() => setHoverRating(null)}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button
+              key={i}
+              type="button"
+              role="radio"
+              aria-checked={userRating === i}
+              aria-label={`${i} bintang`}
+              disabled={submitting}
+              onClick={() => handleRate(i)}
+              onMouseEnter={() => setHoverRating(i)}
+              className={cx(
+                'flex h-11 w-11 items-center justify-center transition-transform hover:scale-110 disabled:opacity-50',
+                focusRing
+              )}
+            >
+              <StarIcon fill={fillFor(i, shown)} size={size} />
+            </button>
+          ))}
+        </div>
+        {showDetails && summary}
       </div>
 
-      {!readOnly && userId && showDetails && (
-        <p className="text-[10px] text-slate-400 dark:text-slate-500">
-          {userRating > 0 ? `Rating Anda: ${userRating} bintang` : 'Klik bintang untuk memberi rating'}
+      {showDetails && (
+        <p className="text-xs text-mute">
+          {userRating > 0 ? `Rating Anda: ${userRating} bintang. Ketuk bintang lain untuk mengubah.` : 'Ketuk bintang untuk memberi rating.'}
         </p>
       )}
+      {rateError && <p className="text-xs text-accent-text">{rateError}</p>}
 
-      {/* Inline Review/Comment box inside borders */}
-      {!readOnly && showCommentForm && (
-        <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900 border border-violet-500/30 rounded-xl space-y-2.5 animate-fade-in-up">
-          <p className="text-[11px] font-bold text-violet-600 dark:text-violet-400">
-            Tulis Komentar untuk Rating {pendingRating} <Star size={12} className="inline -mt-0.5 fill-current" /> Anda:
-          </p>
-          <textarea
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value.slice(0, 500))}
-            placeholder="Bagikan pendapat Anda tentang karya ini (opsional)..."
+      {showCommentForm && (
+        <div className="mt-2 grid gap-3 border border-ink p-4">
+          <TextAreaField
+            id={`rating-comment-${workId}`}
+            label={`Ceritakan rating ${pendingRating} bintang Anda`}
             rows={2}
-            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs focus:outline-none focus:border-violet-500 text-slate-800 dark:text-slate-200 resize-none"
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value.slice(0, COMMENT_MAX))}
+            placeholder="Opsional"
+            hint={`${commentText.length} / ${COMMENT_MAX}`}
+            error={commentError}
           />
-          <div className="flex justify-between items-center text-[9px] text-slate-400">
-            <span>{commentText.length} / 500</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleCancelComment}
-                className="px-2 py-1 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmitComment}
-                disabled={submittingComment}
-                className="px-3 py-1 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-md flex items-center gap-1 transition-colors"
-              >
-                {submittingComment && <Loader2 size={10} className="animate-spin" />}
-                Kirim
-              </button>
-            </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setCommentText('');
+                setShowCommentForm(false);
+              }}
+            >
+              Lewati
+            </Button>
+            <Button size="sm" onClick={handleSubmitComment} loading={submittingComment}>
+              Kirim
+            </Button>
           </div>
         </div>
       )}

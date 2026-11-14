@@ -136,10 +136,12 @@ describe('parseShippingDetails', () => {
     ['shipping_city', '', /Kota/],
     ['shipping_postal_code', '4136', /Kode pos/],
     ['notes', 'x'.repeat(301), /Catatan/],
-  ])('rejects a bad %s', (field, value, message) => {
+  ])('rejects a bad %s and names that field', (field, value, message) => {
     const result = parseShippingDetails({ ...body, [field]: value })
     expect(result.ok).toBe(false)
     expect(!result.ok && result.error).toMatch(message)
+    // The checkout form puts the message under this field.
+    expect(!result.ok && result.field).toBe(field)
   })
 
   it('treats non-string fields as missing instead of throwing', () => {

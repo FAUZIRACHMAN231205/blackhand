@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '../component/Navbar';
 import AuthModal from '../component/AuthModal';
 import SiteFooter from '../component/SiteFooter';
-import { Button, CatalogCard, EmptyState, FilterTabs, PageHeader, Price, Tag, type FilterTab } from '../component/ui';
+import { WorkCard } from '../component/CatalogCards';
+import { Button, EmptyState, FilterTabs, PageHeader, type FilterTab } from '../component/ui';
 import { useAuth } from '../hooks/useAuth';
+import { useOwnedWorkIds } from '../hooks/useOwnedWorkIds';
 import { supabase } from '../lib/supabaseClient';
 import { WORK_CATEGORIES, isValidCategory } from '../lib/categories';
 import { GALLERY_PAGE_SIZE, pageRange, splitPage } from '../lib/pagination';
-import { publicSaleStatus } from '../lib/sales';
 import type { Work } from '../types';
 
 const WORK_COLUMNS =
@@ -68,55 +69,6 @@ async function loadPublishedCount(): Promise<number | null> {
     return null;
   }
   return count;
-}
-
-/** The works this visitor owns, in one request, so cards can say "Milik Anda". */
-function useOwnedWorkIds(signedIn: boolean) {
-  const [owned, setOwned] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    if (!signedIn) return;
-    let cancelled = false;
-    fetch('/api/me/albums')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { workIds: string[] } | null) => {
-        if (!cancelled && data) setOwned(new Set(data.workIds));
-      })
-      .catch((err) => console.error('Error loading owned works:', err));
-    return () => {
-      cancelled = true;
-    };
-  }, [signedIn]);
-  return signedIn ? owned : new Set<string>();
-}
-
-function WorkCard({ work, owned }: { work: Work; owned: boolean }) {
-  const status = publicSaleStatus(work);
-  const tags = owned ? (
-    <Tag>Milik Anda</Tag>
-  ) : status === 'sold' ? (
-    <Tag variant="solid">Terjual</Tag>
-  ) : work.is_featured ? (
-    <Tag>Pilihan</Tag>
-  ) : null;
-
-  const aside = owned ? (
-    'Milik Anda'
-  ) : status === 'sold' ? (
-    'Terjual'
-  ) : status === 'available' || status === 'reserved' ? (
-    <Price amount={work.price_idr ?? 0} size="sm" />
-  ) : null;
-
-  return (
-    <CatalogCard
-      href={`/gallery/${work.id}`}
-      imageUrl={work.featured_image_url}
-      title={work.title}
-      meta={work.category}
-      aside={aside}
-      tags={tags}
-    />
-  );
 }
 
 function GalleryContent() {

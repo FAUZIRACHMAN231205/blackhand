@@ -133,7 +133,7 @@ const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
  */
 export function parseShippingDetails(
   body: Record<string, unknown>
-): { ok: true; value: ShippingDetails } | { ok: false; error: string } {
+): { ok: true; value: ShippingDetails } | { ok: false; error: string; field: keyof ShippingDetails } {
   const value: ShippingDetails = {
     recipient_name: text(body.recipient_name),
     recipient_phone: text(body.recipient_phone).replace(/[^\d+]/g, ''),
@@ -144,22 +144,22 @@ export function parseShippingDetails(
   };
 
   if (value.recipient_name.length < 2 || value.recipient_name.length > 100) {
-    return { ok: false, error: 'Nama penerima wajib diisi (2–100 karakter)' };
+    return { ok: false, error: 'Nama penerima wajib diisi (2–100 karakter)', field: 'recipient_name' };
   }
   if (!/^\+?\d{8,15}$/.test(value.recipient_phone)) {
-    return { ok: false, error: 'Nomor HP tidak valid (8–15 digit)' };
+    return { ok: false, error: 'Nomor HP tidak valid (8–15 digit)', field: 'recipient_phone' };
   }
   if (value.shipping_address.length < 10 || value.shipping_address.length > 500) {
-    return { ok: false, error: 'Alamat lengkap wajib diisi (10–500 karakter)' };
+    return { ok: false, error: 'Alamat lengkap wajib diisi (10–500 karakter)', field: 'shipping_address' };
   }
   if (value.shipping_city.length < 2 || value.shipping_city.length > 100) {
-    return { ok: false, error: 'Kota/kabupaten wajib diisi' };
+    return { ok: false, error: 'Kota/kabupaten wajib diisi', field: 'shipping_city' };
   }
   if (!/^\d{5}$/.test(value.shipping_postal_code)) {
-    return { ok: false, error: 'Kode pos harus 5 digit' };
+    return { ok: false, error: 'Kode pos harus 5 digit', field: 'shipping_postal_code' };
   }
   if (value.notes.length > 300) {
-    return { ok: false, error: 'Catatan maksimal 300 karakter' };
+    return { ok: false, error: 'Catatan maksimal 300 karakter', field: 'notes' };
   }
   return { ok: true, value };
 }

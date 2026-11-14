@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Clock, Check } from 'lucide-react';
-import { Button, CatalogCard, EmptyState, PageHeader, Price, TabLinks, Tag } from '../component/ui';
-import { DemoFields, DemoFilterTabs, ThemeSwitch } from './Demos';
+import { Button, CatalogCard, EmptyState, Notice, PageHeader, Price, TabLinks, Tag } from '../component/ui';
+import { DemoFields, DemoFilterTabs, DemoImageViewer, DemoQuantity, ThemeSwitch } from './Demos';
 
 export const metadata: Metadata = {
   title: 'UI Kit · Blackhand',
@@ -123,6 +123,24 @@ export default function DesignPage() {
 
         <Section title="Isian">
           <DemoFields />
+        </Section>
+
+        <Section title="Pemberitahuan">
+          <div className="grid max-w-md gap-3">
+            <Notice title="Milik Anda">Anda satu-satunya pemilik karya ini. Unduh 6 file resolusi penuh kapan saja.</Notice>
+            <Notice tone="pending" title="Sedang dibeli">
+              Pengunjung lain sedang membayar karya ini sampai pukul 14.35 WIB.
+            </Notice>
+            <Notice tone="error">Komentar gagal dikirim. Periksa koneksi Anda lalu coba lagi.</Notice>
+          </div>
+        </Section>
+
+        <Section title="Jumlah">
+          <DemoQuantity />
+        </Section>
+
+        <Section title="Penampil gambar">
+          <DemoImageViewer />
         </Section>
 
         <Section title="Keadaan kosong">

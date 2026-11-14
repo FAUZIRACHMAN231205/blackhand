@@ -1,14 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ChevronLeft, Loader2, Minus, Plus, ShoppingBag, Truck } from 'lucide-react';
 import Navbar from '../../component/Navbar';
 import AuthModal from '../../component/AuthModal';
 import SiteFooter from '../../component/SiteFooter';
-import { LoadingSpinner } from '../../component/LoadingStates';
 import SnapScript, { openSnap } from '../../component/SnapScript';
+import {
+  Button,
+  EmptyState,
+  ImageViewer,
+  Notice,
+  Price,
+  QuantityStepper,
+  Tag,
+  TextAreaField,
+  TextField,
+} from '../../component/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../context/ToastContext';
 import { formatIdr } from '../../lib/categories';
@@ -23,28 +31,36 @@ import {
 } from '../../lib/shop';
 import type { Product, ProductImage } from '../../types';
 
-const inputClass =
-  'w-full rounded-xl border border-black/10 bg-white px-4 py-3 font-sans text-base text-black placeholder-black/40 transition-all focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder-white/40 sm:text-sm';
-const labelClass =
-  'mb-1.5 block font-sans text-[10px] font-bold uppercase tracking-widest text-black/50 dark:text-white/50';
+type FieldErrors = Partial<Record<keyof ShippingDetails, string>>;
+
+function SummaryRow({ label, value, strong = false }: { label: React.ReactNode; value: string; strong?: boolean }) {
+  return (
+    <div className={strong ? 'flex justify-between gap-4 border-t border-ink pt-3 text-base font-bold' : 'flex justify-between gap-4'}>
+      <dt className={strong ? 'text-ink' : 'min-w-0 text-mute'}>{label}</dt>
+      <dd className="shrink-0 tabular-nums">{value}</dd>
+    </div>
+  );
+}
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const { showToast } = useToast();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [images, setImages] = useState<ProductImage[]>([]);
   const [shippingFee, setShippingFee] = useState(0);
-  const [loadingProduct, setLoadingProduct] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [checkingOut, setCheckingOut] = useState(false);
   const [shipping, setShipping] = useState<ShippingDetails>(EMPTY_SHIPPING);
   const [submitting, setSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -60,7 +76,7 @@ export default function ProductDetail() {
       } catch (err) {
         console.error('Error loading product:', err);
       } finally {
-        if (!ignore) setLoadingProduct(false);
+        if (!ignore) setLoading(false);
       }
     })();
     return () => {
@@ -68,29 +84,10 @@ export default function ProductDetail() {
     };
   }, [id]);
 
-  if (loading || loadingProduct) return <LoadingSpinner />;
-
-  if (!product) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-slate-950">
-        <div className="text-center">
-          <p className="mb-4 font-sans text-sm text-black/60 dark:text-white/60">Produk tidak ditemukan</p>
-          <Link
-            href="/shop"
-            className="rounded-xl bg-black px-6 py-3 font-sans text-[11px] font-black uppercase tracking-[0.2em] text-white dark:bg-white dark:text-black"
-          >
-            Kembali ke Shop
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const soldOut = product.stock <= 0;
-  const pctOff = discountPercent(product.price_idr, product.compare_at_price_idr);
-  const maxQuantity = Math.max(1, Math.min(MAX_ORDER_QUANTITY, product.stock));
-  const subtotal = product.price_idr * quantity;
-  const photo = images[current]?.image_url ?? product.cover_image_url;
+  // On phones the form opens below the photos: bring it into view.
+  useEffect(() => {
+    if (checkingOut) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [checkingOut]);
 
   const startCheckout = () => {
     if (!user) {
@@ -103,20 +100,28 @@ export default function ProductDetail() {
 
   const field = (key: keyof ShippingDetails) => ({
     value: shipping[key],
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setShipping((prev) => ({ ...prev, [key]: e.target.value })),
+    error: fieldErrors[key] ?? null,
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setShipping((prev) => ({ ...prev, [key]: e.target.value }));
+      // A fixed field stops shouting as soon as it is touched again.
+      if (fieldErrors[key]) setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+    },
   });
 
   const pay = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || !product) return;
 
-    // Same rules the server applies, so most mistakes show before a round trip.
+    // Same rules the server applies, so most mistakes show before a round trip,
+    // right under the field that needs fixing.
     const parsed = parseShippingDetails({ ...shipping });
     if (!parsed.ok) {
-      setFormError(parsed.error);
+      setFieldErrors({ [parsed.field]: parsed.error });
+      setFormError(null);
+      document.getElementById(parsed.field)?.focus();
       return;
     }
+    setFieldErrors({});
     setFormError(null);
     setSubmitting(true);
 
@@ -129,7 +134,7 @@ export default function ProductDetail() {
       const data = await res.json();
 
       if (!res.ok) {
-        setFormError(data.error || 'Gagal membuat pesanan.');
+        setFormError(data.error || 'Gagal membuat pesanan. Coba lagi.');
         return;
       }
 
@@ -146,10 +151,7 @@ export default function ProductDetail() {
         },
       });
       if (!opened) {
-        showToast({
-          type: 'error',
-          message: 'Pembayaran belum siap. Lanjutkan dari Akun › Pesanan sebentar lagi.',
-        });
+        showToast({ type: 'error', message: 'Pembayaran belum siap. Lanjutkan dari Akun › Pesanan sebentar lagi.' });
         router.push(ACCOUNT_ORDERS);
       }
     } catch (err) {
@@ -160,234 +162,171 @@ export default function ProductDetail() {
     }
   };
 
+  const body = () => {
+    if (loading) {
+      return (
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" aria-busy="true" aria-label="Memuat produk">
+          <div className="aspect-square animate-pulse bg-sheet" />
+          <div className="grid content-start gap-4">
+            <div className="h-10 w-3/4 animate-pulse bg-sheet" />
+            <div className="h-6 w-1/3 animate-pulse bg-sheet" />
+            <div className="h-24 animate-pulse bg-sheet" />
+          </div>
+        </div>
+      );
+    }
+
+    if (!product) {
+      return (
+        <EmptyState
+          title="Produk tidak ditemukan"
+          description="Produk ini mungkin sudah ditarik dari toko, atau alamatnya salah."
+          action={<Button href="/shop">Kembali ke toko</Button>}
+        />
+      );
+    }
+
+    const soldOut = product.stock <= 0;
+    const pctOff = discountPercent(product.price_idr, product.compare_at_price_idr);
+    const maxQuantity = Math.max(1, Math.min(MAX_ORDER_QUANTITY, product.stock));
+    const subtotal = product.price_idr * quantity;
+    const photos = images.length > 0
+      ? images.map((img) => ({ id: img.id, url: img.image_url }))
+      : product.cover_image_url
+        ? [{ id: 'cover', url: product.cover_image_url }]
+        : [];
+
+    return (
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start">
+        <ImageViewer images={photos} index={current} onIndexChange={setCurrent} alt={product.name} fit="cover" />
+
+        <div className="grid min-w-0 gap-8 lg:sticky lg:top-24">
+          <header className="grid gap-3 border-b border-ink pb-6">
+            <p className="font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-mute">Merchandise</p>
+            <h1 className="break-words font-serif text-4xl font-medium italic leading-tight text-ink sm:text-5xl">
+              {product.name}
+            </h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <Price amount={product.price_idr} compareAt={product.compare_at_price_idr} size="lg" />
+              {pctOff !== null && <Tag variant="sale">−{pctOff}%</Tag>}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-sans text-xs text-mute">
+              {soldOut ? <Tag variant="solid">Stok habis</Tag> : <span>Stok tersedia: {product.stock}</span>}
+              <span>
+                {shippingFee > 0 ? `Ongkos kirim flat ${formatIdr(shippingFee)} per pesanan` : 'Gratis ongkos kirim'}
+              </span>
+            </div>
+          </header>
+
+          {product.description && (
+            <p className="whitespace-pre-wrap font-sans text-base leading-relaxed text-ink">{product.description}</p>
+          )}
+
+          {soldOut ? (
+            <Notice title="Stok habis">Produk ini sedang tidak tersedia. Lihat merchandise lain di toko.</Notice>
+          ) : !checkingOut ? (
+            <div className="grid gap-4 border-t border-line pt-6">
+              <QuantityStepper id="quantity" label="Jumlah" value={quantity} max={maxQuantity} onChange={setQuantity} />
+              <Button variant="buy" fullWidth onClick={startCheckout}>
+                Beli · {formatIdr(subtotal)}
+              </Button>
+              {!user && <p className="text-center font-sans text-xs text-mute">Masuk dulu untuk membeli.</p>}
+            </div>
+          ) : (
+            <form ref={formRef} onSubmit={pay} noValidate className="grid scroll-mt-24 gap-8 border-t border-ink pt-6">
+              <section className="grid gap-3">
+                <h2 className="font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-ink">Pesanan</h2>
+                <dl className="grid gap-2 font-sans text-sm">
+                  <SummaryRow
+                    label={
+                      <>
+                        <span className="font-serif text-base italic text-ink">{product.name}</span> × {quantity}
+                      </>
+                    }
+                    value={formatIdr(subtotal)}
+                  />
+                </dl>
+              </section>
+
+              <section className="grid gap-5">
+                <h2 className="font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-ink">Alamat pengiriman</h2>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <TextField id="recipient_name" label="Nama penerima" autoComplete="name" {...field('recipient_name')} />
+                  <TextField
+                    id="recipient_phone"
+                    label="Nomor HP"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="08xxxxxxxxxx"
+                    hint="Untuk kurir menghubungi Anda."
+                    {...field('recipient_phone')}
+                  />
+                </div>
+                <TextAreaField
+                  id="shipping_address"
+                  label="Alamat lengkap"
+                  rows={3}
+                  autoComplete="street-address"
+                  placeholder="Jalan, nomor rumah, RT/RW, kelurahan, kecamatan"
+                  {...field('shipping_address')}
+                />
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <TextField id="shipping_city" label="Kota / kabupaten" autoComplete="address-level2" {...field('shipping_city')} />
+                  <TextField
+                    id="shipping_postal_code"
+                    label="Kode pos"
+                    inputMode="numeric"
+                    autoComplete="postal-code"
+                    maxLength={5}
+                    {...field('shipping_postal_code')}
+                  />
+                </div>
+                <TextField id="notes" label="Catatan" placeholder="Opsional" maxLength={300} {...field('notes')} />
+              </section>
+
+              <section className="grid gap-4">
+                <dl className="grid gap-2 font-sans text-sm">
+                  <SummaryRow label="Subtotal" value={formatIdr(subtotal)} />
+                  <SummaryRow label="Ongkos kirim" value={shippingFee > 0 ? formatIdr(shippingFee) : 'Gratis'} />
+                  <SummaryRow label="Total" value={formatIdr(subtotal + shippingFee)} strong />
+                </dl>
+
+                {formError && <Notice tone="error">{formError}</Notice>}
+
+                <Button type="submit" variant="buy" fullWidth loading={submitting}>
+                  {submitting ? 'Menyiapkan pembayaran' : `Bayar · ${formatIdr(subtotal + shippingFee)}`}
+                </Button>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="font-sans text-xs text-mute">
+                    Stok disimpan untuk Anda selama {PAYMENT_WINDOW_MINUTES} menit sampai pembayaran selesai.
+                  </p>
+                  <Button variant="ghost" size="sm" onClick={() => setCheckingOut(false)} disabled={submitting}>
+                    Batal
+                  </Button>
+                </div>
+              </section>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <Navbar onOpenModal={() => setAuthOpen(true)} />
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
       <SnapScript />
 
-      <main className="min-h-[100dvh] bg-white px-4 pb-16 pt-20 text-black transition-colors duration-300 dark:bg-slate-950 dark:text-white md:px-6">
-        <div className="mx-auto max-w-5xl">
-          <Link
-            href="/shop"
-            className="group mb-2 flex w-fit items-center gap-2 py-2 text-black/60 transition-colors hover:text-black dark:text-white/60 dark:hover:text-white"
-          >
-            <ChevronLeft size={20} className="transition-transform group-hover:-translate-x-1" />
-            <span className="font-sans text-sm font-medium">Kembali ke Shop</span>
-          </Link>
-
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-            {/* Photos */}
-            <div>
-              <div className="mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-black/5 bg-black/5 dark:border-white/10 dark:bg-white/5">
-                {photo ? (
-                  <img src={photo} alt={product.name} className="h-full w-full object-cover" />
-                ) : (
-                  <ShoppingBag size={48} strokeWidth={1.25} className="opacity-40" />
-                )}
-              </div>
-              {images.length > 1 && (
-                <div className="grid grid-cols-6 gap-2">
-                  {images.map((img, idx) => (
-                    <button
-                      key={img.id}
-                      onClick={() => setCurrent(idx)}
-                      aria-label={`Foto ${idx + 1}`}
-                      className={`aspect-square overflow-hidden rounded-xl border-2 transition-all ${
-                        idx === current
-                          ? 'border-violet-500'
-                          : 'border-black/10 hover:border-violet-500/40 dark:border-white/10'
-                      }`}
-                    >
-                      <img src={img.image_url} alt="" className="h-full w-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Details & checkout */}
-            <div className="space-y-6">
-              <div>
-                <h1 className="mb-2 font-serif text-3xl italic md:text-4xl">{product.name}</h1>
-                <div className="flex flex-wrap items-baseline gap-3">
-                  <p className="font-sans text-2xl font-black">{formatIdr(product.price_idr)}</p>
-                  {pctOff !== null && (
-                    <>
-                      <p className="font-sans text-base text-black/40 line-through dark:text-white/40">
-                        {formatIdr(product.compare_at_price_idr as number)}
-                      </p>
-                      <span className="rounded-full bg-rose-600 px-2.5 py-1 font-sans text-[10px] font-black uppercase tracking-wider text-white">
-                        −{pctOff}%
-                      </span>
-                    </>
-                  )}
-                </div>
-                <p
-                  className={`mt-1 font-sans text-xs font-bold ${
-                    soldOut ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
-                  }`}
-                >
-                  {soldOut ? 'Stok habis' : `Stok tersedia: ${product.stock}`}
-                </p>
-              </div>
-
-              {product.description && (
-                <p className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-black/70 dark:text-white/70">
-                  {product.description}
-                </p>
-              )}
-
-              {!soldOut && !checkingOut && (
-                <div className="space-y-4 rounded-2xl border border-black/5 bg-black/[0.02] p-5 dark:border-white/10 dark:bg-white/[0.03]">
-                  <div className="flex items-center justify-between">
-                    <span className={labelClass}>Jumlah</span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                        disabled={quantity <= 1}
-                        aria-label="Kurangi jumlah"
-                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 transition-colors hover:bg-black/5 disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/10"
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className="w-10 text-center font-sans text-base font-bold">{quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))}
-                        disabled={quantity >= maxQuantity}
-                        aria-label="Tambah jumlah"
-                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 transition-colors hover:bg-black/5 disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/10"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    onClick={startCheckout}
-                    className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3.5 font-sans text-[11px] font-black uppercase tracking-[0.2em] text-white transition-colors hover:bg-violet-700"
-                  >
-                    <ShoppingBag size={15} />
-                    Beli Sekarang
-                  </button>
-                  {!user && (
-                    <p className="text-center font-sans text-[11px] text-black/50 dark:text-white/50">
-                      Masuk dulu untuk membeli.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {!soldOut && checkingOut && (
-                <form
-                  onSubmit={pay}
-                  className="space-y-4 rounded-2xl border border-black/5 bg-black/[0.02] p-5 dark:border-white/10 dark:bg-white/[0.03]"
-                >
-                  <h2 className="flex items-center gap-2 font-serif text-xl italic">
-                    <Truck size={18} strokeWidth={1.5} />
-                    Alamat Pengiriman
-                  </h2>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="recipient_name" className={labelClass}>Nama penerima</label>
-                      <input id="recipient_name" autoComplete="name" className={inputClass} {...field('recipient_name')} />
-                    </div>
-                    <div>
-                      <label htmlFor="recipient_phone" className={labelClass}>Nomor HP</label>
-                      <input
-                        id="recipient_phone"
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        placeholder="08xxxxxxxxxx"
-                        className={inputClass}
-                        {...field('recipient_phone')}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor="shipping_address" className={labelClass}>Alamat lengkap</label>
-                    <textarea
-                      id="shipping_address"
-                      rows={3}
-                      autoComplete="street-address"
-                      placeholder="Jalan, nomor rumah, RT/RW, kelurahan, kecamatan"
-                      className={`${inputClass} resize-none`}
-                      {...field('shipping_address')}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="shipping_city" className={labelClass}>Kota / kabupaten</label>
-                      <input id="shipping_city" autoComplete="address-level2" className={inputClass} {...field('shipping_city')} />
-                    </div>
-                    <div>
-                      <label htmlFor="shipping_postal_code" className={labelClass}>Kode pos</label>
-                      <input
-                        id="shipping_postal_code"
-                        inputMode="numeric"
-                        autoComplete="postal-code"
-                        maxLength={5}
-                        className={inputClass}
-                        {...field('shipping_postal_code')}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor="notes" className={labelClass}>Catatan (opsional)</label>
-                    <input id="notes" maxLength={300} className={inputClass} {...field('notes')} />
-                  </div>
-
-                  <dl className="space-y-1.5 border-t border-black/5 pt-4 font-sans text-sm dark:border-white/10">
-                    <div className="flex justify-between gap-3">
-                      <dt className="min-w-0 text-black/60 dark:text-white/60">
-                        {product.name} × {quantity}
-                      </dt>
-                      <dd className="shrink-0">{formatIdr(subtotal)}</dd>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-black/60 dark:text-white/60">Ongkos kirim</dt>
-                      <dd className="shrink-0">{shippingFee > 0 ? formatIdr(shippingFee) : 'Gratis'}</dd>
-                    </div>
-                    <div className="flex justify-between gap-3 pt-1 text-base font-black">
-                      <dt>Total</dt>
-                      <dd className="shrink-0">{formatIdr(subtotal + shippingFee)}</dd>
-                    </div>
-                  </dl>
-
-                  {formError && (
-                    <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 font-sans text-xs text-rose-700 dark:text-rose-300">
-                      {formError}
-                    </p>
-                  )}
-
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={() => setCheckingOut(false)}
-                      disabled={submitting}
-                      className="min-h-[48px] flex-1 rounded-xl border border-black/10 px-4 font-sans text-[11px] font-black uppercase tracking-[0.2em] transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 font-sans text-[11px] font-black uppercase tracking-[0.2em] text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
-                    >
-                      {submitting && <Loader2 size={15} className="animate-spin" />}
-                      {submitting ? 'Menyiapkan...' : 'Bayar'}
-                    </button>
-                  </div>
-                  <p className="font-sans text-[11px] leading-snug text-black/50 dark:text-white/50">
-                    Stok disimpan untuk Anda selama {PAYMENT_WINDOW_MINUTES} menit sampai pembayaran selesai.
-                  </p>
-                </form>
-              )}
-            </div>
+      <main className="min-h-[100dvh] bg-paper px-4 pb-20 pt-20 text-ink sm:px-6 md:px-8 md:pt-24">
+        <div className="mx-auto grid max-w-6xl gap-6">
+          <div>
+            <Button variant="ghost" size="sm" href="/shop" className="-ml-2">
+              ← Kembali ke toko
+            </Button>
           </div>
+          {body()}
         </div>
       </main>
 
