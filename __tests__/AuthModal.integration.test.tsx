@@ -23,8 +23,8 @@ function renderModal(isOpen = true) {
 }
 
 async function submitEmail(email = 'buyer@example.com') {
-  fireEvent.change(screen.getByPlaceholderText('name@example.com'), { target: { value: email } })
-  fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: email } })
+  fireEvent.click(screen.getByRole('button', { name: 'Kirim kode' }))
 }
 
 describe('AuthModal', () => {
@@ -44,17 +44,17 @@ describe('AuthModal', () => {
   it('opens on the email step', () => {
     renderModal()
 
-    expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Continue with Google/i })).toBeInTheDocument()
-    const email = screen.getByPlaceholderText('name@example.com') as HTMLInputElement
+    expect(screen.getByRole('heading', { name: 'Masuk', level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Lanjut dengan Google/i })).toBeInTheDocument()
+    const email = screen.getByLabelText('Email') as HTMLInputElement
     expect(email.type).toBe('email')
   })
 
   it('closes from the close button and from the backdrop', () => {
     const { onClose, container } = renderModal()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
-    fireEvent.click(container.querySelector('.backdrop-blur-md') as Element)
+    fireEvent.click(screen.getByRole('button', { name: 'Tutup' }))
+    fireEvent.click(container.querySelector('[data-backdrop]') as Element)
 
     expect(onClose).toHaveBeenCalledTimes(2)
   })
@@ -64,9 +64,9 @@ describe('AuthModal', () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
     renderModal()
 
-    fireEvent.click(screen.getByRole('button', { name: /Continue with Google/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Lanjut dengan Google/i }))
 
-    expect(screen.getByRole('button', { name: /Connecting/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Menghubungkan/i })).toBeDisabled()
     consoleError.mockRestore()
   })
 
@@ -76,8 +76,8 @@ describe('AuthModal', () => {
 
     await submitEmail('buyer@example.com')
 
-    expect(await screen.findByRole('heading', { name: 'Enter code' })).toBeInTheDocument()
-    expect(screen.getByText('Sent to buyer@example.com')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Masukkan kode' })).toBeInTheDocument()
+    expect(screen.getByText('Kode 6 digit sudah dikirim ke buyer@example.com.')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith('/api/auth/otp/request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -93,7 +93,7 @@ describe('AuthModal', () => {
     await submitEmail()
 
     expect(await screen.findByText('Terlalu banyak permintaan')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Masuk', level: 2 })).toBeInTheDocument()
     consoleError.mockRestore()
   })
 
@@ -102,7 +102,7 @@ describe('AuthModal', () => {
     renderModal()
     await submitEmail()
 
-    const code = (await screen.findByPlaceholderText('6-digit code')) as HTMLInputElement
+    const code = (await screen.findByLabelText('Kode')) as HTMLInputElement
     fireEvent.change(code, { target: { value: '12a3-45678' } })
 
     expect(code.value).toBe('123456')
@@ -114,8 +114,8 @@ describe('AuthModal', () => {
     const { onClose } = renderModal()
     await submitEmail('buyer@example.com')
 
-    fireEvent.change(await screen.findByPlaceholderText('6-digit code'), { target: { value: '123456' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
+    fireEvent.change(await screen.findByLabelText('Kode'), { target: { value: '123456' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Masuk' }))
 
     await waitFor(() => expect(push).toHaveBeenCalledWith('/account'))
     expect(onClose).toHaveBeenCalled()
@@ -133,8 +133,8 @@ describe('AuthModal', () => {
     const { onClose } = renderModal()
     await submitEmail()
 
-    fireEvent.change(await screen.findByPlaceholderText('6-digit code'), { target: { value: '000000' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Submit' }))
+    fireEvent.change(await screen.findByLabelText('Kode'), { target: { value: '000000' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Masuk' }))
 
     expect(await screen.findByText('Kode salah')).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()
@@ -147,8 +147,8 @@ describe('AuthModal', () => {
     renderModal()
     await submitEmail()
 
-    fireEvent.click(await screen.findByRole('button', { name: /different email/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Ganti email/i }))
 
-    expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Masuk', level: 2 })).toBeInTheDocument()
   })
 })

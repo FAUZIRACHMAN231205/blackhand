@@ -1,7 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, FilterTabs, SelectField, TextAreaField, TextField } from '../component/ui';
+import {
+  Button,
+  FilterTabs,
+  ImageViewer,
+  QuantityStepper,
+  SelectField,
+  TextAreaField,
+  TextField,
+} from '../component/ui';
 import { useTheme } from '../context/ThemeContext';
 
 export function ThemeSwitch() {
@@ -29,6 +37,34 @@ export function DemoFilterTabs() {
         { value: 'Sculptures', label: 'Sculptures' },
       ]}
     />
+  );
+}
+
+export function DemoQuantity() {
+  const [value, setValue] = useState(1);
+  return (
+    <div className="max-w-sm">
+      <QuantityStepper id="demo-qty" label="Jumlah" value={value} max={5} onChange={setValue} />
+    </div>
+  );
+}
+
+export function DemoImageViewer() {
+  const [index, setIndex] = useState(0);
+  return (
+    <div className="max-w-md">
+      <ImageViewer
+        alt="Contoh"
+        fit="cover"
+        index={index}
+        onIndexChange={setIndex}
+        images={[
+          { id: 'a', url: '/arte.jpeg' },
+          { id: 'b', url: '/arte.jpeg' },
+          { id: 'c', url: '/arte.jpeg' },
+        ]}
+      />
+    </div>
   );
 }
 

@@ -1,12 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, ShieldCheck, Download, Gem, Clock, BadgeCheck } from 'lucide-react';
-import { formatIdr } from '../lib/categories';
 import { formatClock, PAYMENT_WINDOW_MINUTES, type WorkSaleState } from '../lib/sales';
 import { useToast } from '../context/ToastContext';
 import AlbumDownloads from './AlbumDownloads';
 import SnapScript, { openSnap } from './SnapScript';
+import { Button, Notice, Price } from './ui';
 
 interface AlbumPurchaseProps {
   workId: string;
@@ -23,9 +22,6 @@ interface AlbumPurchaseProps {
   currentImageId?: string;
   currentPosition?: number;
 }
-
-const cardLabel =
-  'font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-black/50 dark:text-white/50';
 
 /**
  * Buying a work. Each work has exactly one buyer: once it is paid for it shows
@@ -140,22 +136,16 @@ export default function AlbumPurchase({
     }
   };
 
+  // Unknown until the server answers (or if it can't): show nothing rather
+  // than a buy button that might be wrong.
   if (!sale) return null;
 
   if (sale.status === 'owned') {
     return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
-          <ShieldCheck size={18} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
-          <div className="min-w-0">
-            <p className="font-sans text-xs font-bold text-emerald-700 dark:text-emerald-400">
-              Karya ini milik Anda
-            </p>
-            <p className="font-sans text-[11px] text-emerald-700/70 dark:text-emerald-400/70">
-              Anda satu-satunya pemilik. Unduh {imageCount} file resolusi penuh kapan saja.
-            </p>
-          </div>
-        </div>
+      <div className="grid gap-4">
+        <Notice title="Milik Anda">
+          Anda satu-satunya pemilik karya ini. Unduh {imageCount} file resolusi penuh kapan saja.
+        </Notice>
         <AlbumDownloads
           workId={workId}
           imageCount={imageCount}
@@ -168,34 +158,45 @@ export default function AlbumPurchase({
 
   if (sale.status === 'sold') {
     return (
-      <div className="rounded-xl border border-black/10 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
-        <p className="flex items-center gap-1.5 font-sans text-xs font-black uppercase tracking-[0.2em] text-black dark:text-white">
-          <BadgeCheck size={15} className="text-violet-600 dark:text-violet-400" />
-          Terjual
-        </p>
-        <p className="mt-1.5 font-sans text-[11px] leading-relaxed text-black/60 dark:text-white/60">
-          Karya ini sudah dimiliki seorang kolektor. Anda tetap bisa menikmatinya di sini, tetapi
-          karya ini tidak lagi tersedia untuk dibeli maupun diunduh.
-        </p>
-      </div>
+      <Notice title="Terjual">
+        Karya ini sudah dimiliki seorang kolektor. Anda tetap bisa menikmatinya di sini, tetapi karya ini tidak lagi
+        bisa dibeli atau diunduh.
+      </Notice>
     );
   }
 
-  if (sale.status === 'not_for_sale' || priceIdr == null) return null;
+  if (sale.status === 'not_for_sale' || priceIdr == null) {
+    return <Notice title="Hanya dipamerkan">Karya ini tidak dijual.</Notice>;
+  }
+
+  const priceBlock = (
+    <dl className="grid gap-2 font-sans text-sm">
+      <div className="flex items-baseline justify-between gap-4">
+        <dt className="text-[11px] font-bold uppercase tracking-[0.2em] text-mute">Harga</dt>
+        <dd>
+          <Price amount={priceIdr} size="lg" />
+        </dd>
+      </div>
+      <div className="flex justify-between gap-4 border-t border-line pt-2">
+        <dt className="text-mute">Eksklusif</dt>
+        <dd className="text-right">1 pembeli saja</dd>
+      </div>
+      <div className="flex justify-between gap-4 border-t border-line pt-2">
+        <dt className="text-mute">File</dt>
+        <dd className="text-right">{imageCount} resolusi penuh · JPG, ZIP, PDF, Drive</dd>
+      </div>
+    </dl>
+  );
 
   if (sale.status === 'reserved') {
     return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-        <p className={cardLabel}>Harga Karya</p>
-        <p className="mt-1 font-sans text-2xl font-black text-black dark:text-white">{formatIdr(priceIdr)}</p>
-        <p className="mt-2 flex items-start gap-1.5 font-sans text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
-          <Clock size={13} className="mt-0.5 shrink-0" />
-          <span>
-            Sedang dalam proses pembelian oleh pengunjung lain
-            {sale.reservedUntil ? ` hingga pukul ${formatClock(sale.reservedUntil)} WIB` : ''}. Jika
-            pembayarannya tidak selesai, karya ini akan tersedia kembali.
-          </span>
-        </p>
+      <div className="grid gap-4">
+        {priceBlock}
+        <Notice tone="pending" title="Sedang dibeli">
+          Pengunjung lain sedang membayar karya ini
+          {sale.reservedUntil ? ` sampai pukul ${formatClock(sale.reservedUntil)} WIB` : ''}. Kalau pembayarannya tidak
+          selesai, karya ini tersedia lagi.
+        </Notice>
       </div>
     );
   }
@@ -203,54 +204,29 @@ export default function AlbumPurchase({
   const resuming = sale.status === 'reserved_by_you';
 
   return (
-    <div className="space-y-3">
+    <div className="grid gap-4">
       <SnapScript />
-
-      <div className="rounded-xl border border-black/10 bg-black/[0.03] p-4 dark:border-white/10 dark:bg-white/[0.03]">
-        <p className={cardLabel}>Harga Karya</p>
-        <p className="mt-1 font-sans text-2xl font-black text-black dark:text-white">{formatIdr(priceIdr)}</p>
-        <p className="mt-2 flex items-start gap-1.5 font-sans text-[11px] leading-snug text-violet-700 dark:text-violet-300">
-          <Gem size={12} className="mt-0.5 shrink-0" />
-          Eksklusif — hanya untuk satu pembeli. Setelah terjual, karya ini tidak lagi bisa dibeli atau
-          diunduh orang lain.
-        </p>
-        <p className="mt-1.5 flex items-start gap-1.5 font-sans text-[11px] leading-snug text-black/60 dark:text-white/60">
-          <Download size={12} className="mt-0.5 shrink-0" />
-          {imageCount} file resolusi penuh: JPG, ZIP, PDF, atau simpan ke Google Drive.
-        </p>
-      </div>
+      {priceBlock}
 
       {resuming && (
-        <p className="flex items-start gap-1.5 rounded-lg bg-violet-500/10 px-3 py-2 font-sans text-[11px] leading-snug text-violet-800 dark:text-violet-300">
-          <Clock size={12} className="mt-0.5 shrink-0" />
-          Karya ini sedang disimpan untuk Anda
-          {sale.reservedUntil ? ` hingga pukul ${formatClock(sale.reservedUntil)} WIB` : ''}. Selesaikan
-          pembayaran sebelum waktunya habis.
-        </p>
+        <Notice tone="pending" title="Disimpan untuk Anda">
+          Selesaikan pembayaran
+          {sale.reservedUntil ? ` sebelum pukul ${formatClock(sale.reservedUntil)} WIB` : ''}, setelah itu karya ini
+          dibuka lagi untuk pembeli lain.
+        </Notice>
       )}
 
-      <button
-        onClick={handleBuy}
-        disabled={busy || confirming}
-        className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3.5 font-sans text-[11px] font-black uppercase tracking-[0.2em] text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {busy || confirming ? (
-          <>
-            <Loader2 size={15} className="animate-spin" />
-            {confirming ? 'Mengonfirmasi...' : 'Menyiapkan...'}
-          </>
-        ) : resuming ? (
-          'Lanjutkan Pembayaran'
-        ) : (
-          'Beli Karya Ini'
-        )}
-      </button>
+      <Button variant="buy" fullWidth onClick={handleBuy} loading={busy || confirming}>
+        {confirming
+          ? 'Mengonfirmasi pembayaran'
+          : busy
+            ? 'Menyiapkan pembayaran'
+            : resuming
+              ? 'Lanjutkan pembayaran'
+              : 'Beli karya ini'}
+      </Button>
 
-      {!isLoggedIn && (
-        <p className="text-center font-sans text-[11px] text-black/50 dark:text-white/50">
-          Masuk dulu untuk membeli karya ini.
-        </p>
-      )}
+      {!isLoggedIn && <p className="text-center font-sans text-xs text-mute">Masuk dulu untuk membeli karya ini.</p>}
     </div>
   );
 }

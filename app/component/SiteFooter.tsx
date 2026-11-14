@@ -13,7 +13,7 @@ export default function SiteFooter() {
     <footer className="border-t border-ink bg-paper px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-10 text-ink sm:px-6 md:px-8">
       <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1fr_auto] md:items-end">
         <div className="grid gap-2">
-          <Link href="/" className={cx('w-fit font-serif text-4xl font-medium italic tracking-tighter', focusRing)}>
+          <Link href="/" className={cx('flex min-h-11 w-fit items-center font-serif text-4xl font-medium italic tracking-tighter', focusRing)}>
             Blackhand<span className="text-mute">.</span>
           </Link>
           <p className="max-w-sm font-sans text-sm text-mute">

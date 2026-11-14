@@ -1,26 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, AlertCircle } from 'lucide-react';
-import { useToast } from '../context/ToastContext';
+import { X } from 'lucide-react';
 import { ACCOUNT_HOME } from '../lib/routes';
+import { Button, Notice, TextField, cx, focusRing } from './ui';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+/**
+ * Masuk: Google, or a six-digit code sent by email. No passwords, and the same
+ * two steps whether the visitor is new or returning.
+ */
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const router = useRouter();
-  const { showToast } = useToast();
+  const titleId = useId();
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset state ketika modal dibuka
+  // Start fresh each time the dialog opens.
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
@@ -33,15 +37,23 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   }
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  // 1. FUNGSI AUTH GOOGLE (OAUTH) — full-page redirect ke route OAuth kita sendiri
+  // A full-page redirect to our own OAuth route.
   const handleGoogleLogin = () => {
     setLoading(true);
     window.location.href = '/api/auth/google';
   };
 
-  // 2. FUNGSI KIRIM KODE OTP EMAIL
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
@@ -55,26 +67,19 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to send OTP');
-      }
-
-      // Jika sukses mengirim kode, pindah ke langkah input OTP
+      if (!res.ok) throw new Error(data.error || 'Kode gagal dikirim.');
       setStep('otp');
-    } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      console.error('Error mengirim OTP:', error);
-      setError(errMsg || 'Silakan cek koneksi internet dan coba lagi');
+    } catch (err: unknown) {
+      console.error('Error mengirim OTP:', err);
+      setError((err instanceof Error && err.message) || 'Periksa koneksi internet Anda lalu coba lagi.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 3. FUNGSI VERIFIKASI KODE OTP
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otp || otp.length < 6) return;
+    if (otp.length < 6) return;
 
     setLoading(true);
     setError(null);
@@ -85,18 +90,14 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         body: JSON.stringify({ email, code: otp }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Kode salah atau kedaluwarsa.');
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Verification failed');
-      }
-
-      // Login must not override the theme the user chose.
+      // Signing in must not override the theme the member chose.
       onClose();
       router.push(ACCOUNT_HOME);
-    } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      console.error('Error verifikasi OTP:', error);
-      setError(errMsg || 'Kode OTP salah atau kedaluwarsa. Silakan coba lagi.');
+    } catch (err: unknown) {
+      console.error('Error verifikasi OTP:', err);
+      setError((err instanceof Error && err.message) || 'Kode salah atau kedaluwarsa. Coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -109,127 +110,103 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
+    <div className="fixed inset-0 z-[300] flex items-end justify-center sm:items-center sm:p-4">
+      <div data-backdrop className="absolute inset-0 bg-ink/60" onClick={onClose} aria-hidden />
 
-      <div className="relative w-full max-w-[420px] bg-zinc-950 border border-white/10 p-6 sm:p-10 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Ambient accent glow - refined for dark art vibe */}
-        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-48 h-48 sm:w-56 sm:h-56 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
-
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative grid max-h-[100dvh] w-full max-w-md gap-6 overflow-y-auto border border-ink bg-paper p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-ink sm:p-8"
+      >
         <button
+          type="button"
           onClick={onClose}
-          aria-label="Close"
-          className="absolute top-2 right-2 sm:top-4 sm:right-4 flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 hover:text-white hover:bg-white/5 transition-colors"
+          aria-label="Tutup"
+          className={cx(
+            'absolute right-2 top-2 flex h-11 w-11 items-center justify-center text-mute transition-colors hover:text-ink',
+            focusRing
+          )}
         >
-          <X size={20} />
+          <X size={20} aria-hidden />
         </button>
 
-        <div className="relative z-10 flex flex-col mt-2 sm:mt-0">
-          {/* Header Section */}
-          <div className="mb-6 sm:mb-8 text-left">
-            <h2 className="font-serif text-3xl sm:text-4xl italic mb-1 text-white">
-              {step === 'email' ? 'Identity' : 'Enter code'}
-            </h2>
-            <p className="font-sans text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">
-              {step === 'email'
-                ? 'Access your digital archive'
-                : `Sent to ${email || 'your email'}`}
-            </p>
-          </div>
+        <header className="grid gap-2 border-b border-ink pb-4 pr-10">
+          <h2 id={titleId} className="font-sans text-3xl font-bold uppercase tracking-[-0.02em]">
+            {step === 'email' ? 'Masuk' : 'Masukkan kode'}
+          </h2>
+          <p className="font-sans text-sm text-mute [overflow-wrap:anywhere]">
+            {step === 'email'
+              ? 'Masuk atau daftar tanpa kata sandi.'
+              : `Kode 6 digit sudah dikirim ke ${email}.`}
+          </p>
+        </header>
 
-          {error && (
-            <div className="mb-6 flex items-start gap-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-3 rounded-xl text-xs font-sans leading-relaxed">
-              <AlertCircle size={14} className="shrink-0 mt-0.5" />
-              <span>{error}</span>
+        {error && <Notice tone="error">{error}</Notice>}
+
+        {step === 'email' ? (
+          <>
+            <Button variant="secondary" fullWidth onClick={handleGoogleLogin} disabled={loading}>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden>
+                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              {loading ? 'Menghubungkan' : 'Lanjut dengan Google'}
+            </Button>
+
+            <div className="flex items-center gap-4 font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-mute">
+              <span className="h-px flex-grow bg-line" />
+              atau
+              <span className="h-px flex-grow bg-line" />
             </div>
-          )}
 
-          {step === 'email' ? (
-            /* STEP 1: EMAIL INPUT & GOOGLE BUTTON */
-            <>
-              {/* TOMBOL GOOGLE SEKARANG MEMILIKI ONCLICK DAN DISABLED STATE SAAT LOADING */}
-              <button 
-                onClick={handleGoogleLogin}
+            <form onSubmit={handleSendOTP} className="grid gap-5">
+              <TextField
+                id="auth-email"
+                label="Email"
+                type="email"
+                required
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
                 disabled={loading}
-                className="w-full bg-white text-black font-sans text-[11px] font-black uppercase tracking-[0.2em] py-4 rounded-xl hover:bg-zinc-200 transition-all mb-8 flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
-                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                {loading ? 'Connecting...' : 'Continue with Google'}
-              </button>
-
-              <div className="w-full flex items-center mb-8 text-zinc-600">
-                <div className="flex-grow h-[1px] bg-white/5"></div>
-                <span className="px-4 text-[9px] font-bold uppercase tracking-widest italic font-sans">or</span>
-                <div className="flex-grow h-[1px] bg-white/5"></div>
-              </div>
-
-              <form onSubmit={handleSendOTP} className="space-y-5">
-                <div className="space-y-1.5 text-left">
-                  <label className="font-sans text-[9px] uppercase tracking-widest text-zinc-400 ml-1">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    disabled={loading}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="w-full bg-white/5 border border-white/10 px-4 py-3.5 rounded-xl font-sans text-base text-white focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all placeholder:text-zinc-500 disabled:opacity-50"
-                  />
-                </div>
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="w-full bg-zinc-900 border border-white/10 text-white font-sans text-[11px] font-black uppercase tracking-[0.2em] py-4 rounded-xl hover:bg-zinc-800 transition-all disabled:opacity-50"
-                >
-                  {loading ? 'Sending...' : 'Continue'}
-                </button>
-              </form>
-            </>
-          ) : (
-            /* STEP 2: OTP INPUT VERIFICATION */
-            <form onSubmit={handleVerifyOTP} className="space-y-6">
-              <div className="space-y-1.5 text-left">
-                <input
-                  type="text"
-                  required
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  disabled={loading}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="6-digit code"
-                  className="w-full bg-white/5 border border-white/10 px-4 py-4 rounded-xl font-sans text-center text-xl tracking-[0.5em] text-white focus:outline-none focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10 transition-all placeholder:tracking-normal placeholder:text-sm placeholder:text-zinc-500 disabled:opacity-50"
-                />
-              </div>
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="w-full bg-white text-black font-sans text-[11px] font-black uppercase tracking-[0.2em] py-4 rounded-xl hover:bg-zinc-200 transition-all disabled:opacity-50"
-              >
-                {loading ? 'Verifying...' : 'Submit'}
-              </button>
-              <button 
-                type="button"
-                onClick={handleBack}
-                disabled={loading}
-                className="w-full text-zinc-500 font-sans text-[9px] uppercase tracking-widest hover:text-white transition-colors disabled:opacity-50"
-              >
-                Sign in with a different email
-              </button>
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nama@contoh.com"
+              />
+              <Button type="submit" fullWidth loading={loading}>
+                {loading ? 'Mengirim kode' : 'Kirim kode'}
+              </Button>
             </form>
-          )}
-        </div>
+          </>
+        ) : (
+          <form onSubmit={handleVerifyOTP} className="grid gap-5">
+            <TextField
+              id="auth-code"
+              label="Kode"
+              type="text"
+              required
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]*"
+              maxLength={6}
+              disabled={loading}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="6 digit"
+              hint="Cek juga folder spam bila belum masuk."
+            />
+            <Button type="submit" fullWidth loading={loading} disabled={otp.length < 6}>
+              {loading ? 'Memeriksa' : 'Masuk'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleBack} disabled={loading}>
+              Ganti email
+            </Button>
+          </form>
+        )}
       </div>
     </div>
   );

@@ -1,50 +1,41 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Star } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { MessageSquare, Send, Trash2, Loader2, AlertCircle, Star } from 'lucide-react';
 import type { WorkComment } from '../types';
 import ConfirmDialog from './ConfirmDialog';
+import { Button, Notice, TextAreaField } from './ui';
 
 interface CommentSectionProps {
   workId: string;
   /** Omitted for signed-out visitors: comments stay readable, posting is gated. */
   userId?: string;
-  userEmail?: string;
   isAdmin?: boolean;
   ratingsVersion?: number;
   /** Called when a signed-out visitor wants to comment. */
   onRequireAuth?: () => void;
 }
 
-// ─── Relative Timestamp Helper ────────────────────────────────────────
-function commentTimeAgo(dateStr: string): string {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+const COMMENT_MAX = 500;
 
+function commentTimeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
   if (seconds < 60) return 'Baru saja';
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m lalu`;
+  if (minutes < 60) return `${minutes} menit lalu`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}j lalu`;
+  if (hours < 24) return `${hours} jam lalu`;
   const days = Math.floor(hours / 24);
   if (days === 1) return 'Kemarin';
-  if (days < 7) return `${days}h lalu`;
-  return date.toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  if (days < 7) return `${days} hari lalu`;
+  return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 /** Each commenter's own rating of this work, keyed by user id. */
 async function loadCommenterRatings(workId: string): Promise<Record<string, number> | null> {
   try {
-    const { data, error } = await supabase
-      .from('work_ratings')
-      .select('user_id, rating')
-      .eq('work_id', workId);
+    const { data, error } = await supabase.from('work_ratings').select('user_id, rating').eq('work_id', workId);
     if (error || !data) return null;
     return Object.fromEntries(data.map((r) => [r.user_id, r.rating]));
   } catch (err) {
@@ -67,22 +58,22 @@ async function loadComments(workId: string): Promise<WorkComment[]> {
 export default function CommentSection({
   workId,
   userId,
-  userEmail,
   isAdmin = false,
   ratingsVersion = 0,
   onRequireAuth,
 }: CommentSectionProps) {
   const [comments, setComments] = useState<WorkComment[]>([]);
-  const [newComment, setNewComment] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [newComment, setNewComment] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<WorkComment | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [commenterRatings, setCommenterRatings] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    // Re-runs when the album changes or a new rating lands; `ignore` drops the
+    // Re-runs when the work changes or a new rating lands; `ignore` drops the
     // answer from a previous run so it can't overwrite a newer one.
     let ignore = false;
 
@@ -92,11 +83,14 @@ export default function CommentSection({
 
     loadComments(workId)
       .then((list) => {
-        if (!ignore) setComments(list);
+        if (!ignore) {
+          setComments(list);
+          setLoadError(false);
+        }
       })
       .catch((err) => {
         console.error('Error fetching comments:', err);
-        if (!ignore) setError('Gagal memuat komentar.');
+        if (!ignore) setLoadError(true);
       })
       .finally(() => {
         if (!ignore) setLoading(false);
@@ -112,8 +106,7 @@ export default function CommentSection({
     if (!newComment.trim() || submitting) return;
 
     setSubmitting(true);
-    setError(null);
-
+    setActionError(null);
     try {
       const res = await fetch(`/api/works/${workId}/comments`, {
         method: 'POST',
@@ -121,15 +114,13 @@ export default function CommentSection({
         body: JSON.stringify({ content: newComment.trim() }),
       });
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error || 'Failed to add comment');
 
-      // Update local comments list
       setComments((prev) => [data.comment, ...prev]);
       setNewComment('');
     } catch (err) {
       console.error('Error adding comment:', err);
-      setError('Gagal mengirim komentar.');
+      setActionError('Komentar gagal dikirim. Periksa koneksi Anda lalu coba lagi.');
     } finally {
       setSubmitting(false);
     }
@@ -140,17 +131,14 @@ export default function CommentSection({
     const commentId = pendingDelete.id;
 
     setDeletingId(commentId);
-    setError(null);
-
+    setActionError(null);
     try {
       const res = await fetch(`/api/comments/${commentId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(await res.text());
-
-      // Update local comments list
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (err) {
       console.error('Error deleting comment:', err);
-      setError('Gagal menghapus komentar.');
+      setActionError('Komentar gagal dihapus. Coba lagi.');
     } finally {
       setDeletingId(null);
       setPendingDelete(null);
@@ -158,167 +146,129 @@ export default function CommentSection({
   };
 
   return (
-    <div className="space-y-6 font-sans">
-      {/* Section Title */}
-      <div className="flex items-center gap-2 border-b border-black/10 dark:border-white/10 pb-3">
-        <MessageSquare className="text-violet-500" size={18} />
-        <h3 className="text-sm font-bold text-black/70 dark:text-white/70 uppercase tracking-wider">
-          Diskusi & Komentar ({comments.length})
-        </h3>
-      </div>
+    <section className="grid gap-6 font-sans" aria-labelledby={`comments-${workId}`}>
+      <h2
+        id={`comments-${workId}`}
+        className="border-b border-ink pb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-ink"
+      >
+        Diskusi{!loading && !loadError ? ` · ${comments.length}` : ''}
+      </h2>
 
-      {/* Error Message */}
-      {error && (
-        <div className="flex items-center gap-2 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 p-3 rounded-xl text-xs border border-rose-100 dark:border-rose-900/30">
-          <AlertCircle size={14} className="shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      {actionError && <Notice tone="error">{actionError}</Notice>}
 
-      {/* Form Input — signed-in only; visitors get a sign-in prompt */}
       {userId ? (
-      <form onSubmit={handleSubmit} className="space-y-2">
-        <div className="relative bg-slate-50 dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-xl overflow-hidden focus-within:border-violet-500/50 transition-colors">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value.slice(0, 500))}
-            placeholder="Tulis pendapat atau komentar Anda tentang karya ini..."
+        <form onSubmit={handleSubmit} className="grid gap-3">
+          <TextAreaField
+            id={`comment-${workId}`}
+            label="Komentar Anda"
             rows={3}
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value.slice(0, COMMENT_MAX))}
+            placeholder="Tulis pendapat Anda tentang karya ini"
             disabled={submitting}
-            className="w-full bg-transparent px-4 py-3 text-base resize-none focus:outline-none placeholder-slate-400 dark:placeholder-slate-500 text-slate-800 dark:text-slate-200"
+            hint={`${newComment.length} / ${COMMENT_MAX}`}
           />
-          <div className="flex justify-between items-center bg-slate-100/50 dark:bg-slate-900/50 border-t border-black/5 dark:border-white/5 px-4 py-2 text-[10px]">
-            <span className={newComment.length >= 480 ? 'text-rose-500 font-bold' : 'text-slate-400'}>
-              {newComment.length} / 500 karakter
-            </span>
-            <button
-              type="submit"
-              disabled={!newComment.trim() || submitting}
-              className="flex items-center gap-1 px-3 py-1 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 dark:disabled:bg-slate-800 text-white text-[11px] font-bold rounded-lg transition-colors"
-            >
-              {submitting ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <Send size={12} />
-              )}
-              Kirim
-            </button>
+          <div className="flex justify-end">
+            <Button type="submit" size="sm" loading={submitting} disabled={!newComment.trim()}>
+              Kirim komentar
+            </Button>
           </div>
-        </div>
-      </form>
+        </form>
       ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-50/70 dark:bg-slate-900/30 border border-dashed border-slate-200 dark:border-slate-800/60 rounded-xl px-4 py-4">
-          <p className="text-xs text-slate-500 dark:text-slate-400 flex-grow">
-            Masuk untuk ikut berdiskusi dan memberi rating pada karya ini.
-          </p>
-          <button
-            type="button"
-            onClick={onRequireAuth}
-            className="shrink-0 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg transition-colors"
-          >
-            Masuk
-          </button>
-        </div>
+        <Notice
+          tone="pending"
+          title="Ikut berdiskusi"
+          action={
+            <Button variant="secondary" size="sm" onClick={onRequireAuth}>
+              Masuk
+            </Button>
+          }
+        >
+          Masuk untuk berkomentar dan memberi rating pada karya ini.
+        </Notice>
       )}
 
-      {/* Comment List */}
       {loading ? (
-        <div className="flex items-center justify-center py-10 text-slate-400 dark:text-slate-500 text-xs gap-2">
-          <Loader2 className="animate-spin" size={14} />
-          <span>Memuat komentar...</span>
+        <div className="grid gap-3" aria-busy="true" aria-label="Memuat komentar">
+          <div className="h-16 animate-pulse bg-sheet" />
+          <div className="h-16 animate-pulse bg-sheet" />
         </div>
+      ) : loadError ? (
+        <p className="text-sm text-accent-text">Komentar gagal dimuat. Muat ulang halaman untuk mencoba lagi.</p>
       ) : comments.length === 0 ? (
-        <div className="text-center py-12 bg-slate-50/50 dark:bg-slate-900/10 border border-dashed border-slate-200 dark:border-slate-800/60 rounded-xl">
-          <p className="text-xs text-slate-400 dark:text-slate-500">Belum ada diskusi. Jadilah yang pertama memberikan pendapat!</p>
-        </div>
+        <p className="text-sm text-mute">Belum ada diskusi. Jadilah yang pertama memberi pendapat.</p>
       ) : (
-        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+        <ul className="border-t border-line">
           {comments.map((comment) => {
-            const isOwner = comment.user_id === userId;
-            const canDelete = isOwner || isAdmin;
+            const canDelete = comment.user_id === userId || isAdmin;
             const rating = commenterRatings[comment.user_id];
 
             return (
-              <div
-                key={comment.id}
-                className="group flex gap-3 p-3.5 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/40 rounded-xl hover:border-slate-200 dark:hover:border-slate-800/80 transition-colors"
-              >
-                {/* Avatar */}
-                <div className="shrink-0">
-                  {comment.user_avatar ? (
-                    <img
-                      src={comment.user_avatar}
-                      alt={comment.user_name || 'User'}
-                      referrerPolicy="no-referrer"
-                      className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-800"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center text-violet-600 dark:text-violet-400 text-xs font-bold font-sans">
-                      {(comment.user_name || 'U').charAt(0).toUpperCase()}
+              <li key={comment.id} className="flex gap-3 border-b border-line py-4">
+                {comment.user_avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={comment.user_avatar}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-9 w-9 shrink-0 rounded-full border border-line object-cover"
+                  />
+                ) : (
+                  <span
+                    aria-hidden
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink font-serif text-sm text-paper"
+                  >
+                    {(comment.user_name || 'A').charAt(0).toUpperCase()}
+                  </span>
+                )}
+
+                <div className="grid min-w-0 flex-grow gap-1">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="text-sm font-bold text-ink">{comment.user_name || 'Anonim'}</span>
+                    {rating && (
+                      <span className="flex items-center gap-0.5" role="img" aria-label={`Rating ${rating} dari 5`}>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            size={11}
+                            aria-hidden
+                            className={i < rating ? 'fill-ink text-ink' : 'text-mute'}
+                          />
+                        ))}
+                      </span>
+                    )}
+                    <span className="text-xs text-mute">{commentTimeAgo(comment.created_at)}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink">{comment.content}</p>
+                  {canDelete && (
+                    <div className="pt-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="-ml-2 text-mute"
+                        onClick={() => setPendingDelete(comment)}
+                        disabled={deletingId === comment.id}
+                      >
+                        Hapus
+                      </Button>
                     </div>
                   )}
                 </div>
-
-                {/* Comment Body */}
-                <div className="flex-grow space-y-1">
-                  <div className="flex justify-between items-baseline gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {comment.user_name || 'Anonim'}
-                      </span>
-                      {rating && (
-                        <div className="flex items-center gap-0.5 text-amber-500 dark:text-amber-400 select-none" title={`Rating: ${rating}/5`}>
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <span key={i} className="text-[10px] leading-none">
-                              <Star size={10} className={i < rating ? 'fill-current' : 'opacity-30'} />
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">
-                      {commentTimeAgo(comment.created_at)}
-                    </span>
-                  </div>
-                  <p className="text-sm font-light text-slate-600 dark:text-slate-300 leading-relaxed break-words whitespace-pre-wrap">
-                    {comment.content}
-                  </p>
-                </div>
-
-                {/* Delete Button */}
-                {/* Always visible on touch: phones have no hover, so a
-                    hover-only control would simply not exist for them. */}
-                {canDelete && (
-                  <button
-                    onClick={() => setPendingDelete(comment)}
-                    disabled={deletingId === comment.id}
-                    title="Hapus komentar"
-                    aria-label="Hapus komentar"
-                    className="shrink-0 self-start p-2.5 -m-1.5 text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 transition-colors active:scale-95 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
-                  >
-                    {deletingId === comment.id ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={16} />
-                    )}
-                  </button>
-                )}
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
 
       <ConfirmDialog
         isOpen={pendingDelete !== null}
         title="Hapus komentar?"
-        message="Komentar ini akan dihapus permanen."
+        message="Komentar ini akan dihapus permanen dan tidak bisa dikembalikan."
         confirmLabel="Hapus"
-        cancelLabel="Batal"
         loading={deletingId !== null}
         onConfirm={handleDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </div>
+    </section>
   );
 }

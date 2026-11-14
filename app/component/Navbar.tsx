@@ -136,7 +136,7 @@ export default function Navbar({ onOpenModal, announcementBar = false }: NavbarP
         </div>
 
         <div className="flex w-1/3 justify-center md:w-auto md:justify-start">
-          <Link href="/" className={cx('font-serif text-3xl font-medium italic tracking-tighter text-ink', focusRing)}>
+          <Link href="/" className={cx('flex min-h-11 items-center font-serif text-3xl font-medium italic tracking-tighter text-ink', focusRing)}>
             Blackhand<span className="text-mute">.</span>
           </Link>
         </div>

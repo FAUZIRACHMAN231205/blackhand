@@ -17,7 +17,7 @@ export default function AnnouncementBar() {
     <div
       role="region"
       aria-label="Pengumuman"
-      className="fixed inset-x-0 top-0 z-[110] overflow-hidden bg-black pt-[env(safe-area-inset-top)] text-white [transform:translateZ(0)]"
+      className="fixed inset-x-0 top-0 z-[110] overflow-hidden bg-ink pt-[env(safe-area-inset-top)] text-paper [transform:translateZ(0)]"
     >
       <div className="animate-marquee flex h-8 items-center whitespace-nowrap">
         {[false, true].map((duplicate) =>
