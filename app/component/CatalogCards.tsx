@@ -6,6 +6,9 @@ import type { Product, Work } from '../types';
 /**
  * An artwork in any grid (Karya, Beranda). One tag at most, by priority:
  * yours, sold, then the studio's pick.
+ *
+ * No price on the card: a visitor should look at the work first, not decide
+ * from a number in the grid. The price is on the detail page, beside "Beli".
  */
 export function WorkCard({ work, owned = false }: { work: Work; owned?: boolean }) {
   const status = publicSaleStatus(work);
@@ -17,13 +20,7 @@ export function WorkCard({ work, owned = false }: { work: Work; owned?: boolean 
     <Tag>Pilihan</Tag>
   ) : null;
 
-  const aside = owned ? (
-    'Milik Anda'
-  ) : status === 'sold' ? (
-    'Terjual'
-  ) : status === 'available' || status === 'reserved' ? (
-    <Price amount={work.price_idr ?? 0} size="sm" />
-  ) : null;
+  const aside = owned ? 'Milik Anda' : status === 'sold' ? 'Terjual' : null;
 
   return (
     <CatalogCard

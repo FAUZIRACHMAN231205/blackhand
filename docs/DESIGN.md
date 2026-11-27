@@ -64,7 +64,7 @@ own buttons, tags, fields or cards.
 | `Button` | `variant`: `buy` (the one red Beli/Bayar), `primary` (ink), `secondary` (outline), `ghost` (cancel/back), `danger` (dashed; delete, always with a confirmation). `href` makes it a link; `loading` shows a spinner |
 | `Tag` | Status by shape: `solid` = can't be bought (Terjual, Stok habis), `outline` = info (Milik Anda, Baru, Pilihan), `dashed` = temporary (Sedang dibeli), `sale` = discount (the only red tag) |
 | `Price` | Rupiah, with the original struck through only for a real discount |
-| `CatalogCard` | One card for artworks and products: image, tags, italic name, category left / price or status right |
+| `CatalogCard` | One card for artworks and products: image, tags, italic name, category left / status right. Artwork cards show **no price** (Terjual / Milik Anda only), so visitors look at the work first; the price is on the detail page. Product cards show the price |
 | `PageHeader` | Top of every page: eyebrow, the page's only `h1`, description, actions |
 | `TextField`, `TextAreaField`, `SelectField` | Labelled, bottom-ruled fields; `error` replaces `hint` and is tied to the control for screen readers |
 | `EmptyState` | Nothing to show yet: what will appear and the way forward |
